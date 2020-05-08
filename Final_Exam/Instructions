@@ -1,0 +1,13 @@
+Please create a folder for your final exam and upload your .rmd file with ALL required contingencies. 
+
+You can create a folder by doing the following:
+
+- Go to the folder inside which you want to create your folder (e.g., informatics/Midterm_1/)
+- Click on New file
+- On the text field for the file name, first write the folder name you want to create
+- Then type /. This creates a folder (e.g., Student_Name_Midterm_1/) **make sure to include the '/' to make a folder for your files**
+- You can add more folders similarly
+- You can upload all your files into this folder for your assignment
+- If you want to add intstructions then just type them into a new file
+- Finally, give the all folders and files a name 
+- Finally, click Commit new file.
