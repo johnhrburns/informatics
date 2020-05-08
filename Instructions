@@ -1,0 +1,21 @@
+All,
+
+Please use this GitHub repository to share all the great work you did this semester. 
+
+You can upload your assignments and resourceful links into any of the folders in this repository. 
+
+Follow these instructions to add folders and files;
+
+
+
+You can create a folder by doing the following:
+
+- Go to the folder inside which you want to create your folder (e.g., informatics/Midterm_1/)
+- Click on New file
+- On the text field for the file name, first write the folder name you want to create
+- Then type /. This creates a folder (e.g., Student_Name_Midterm_1/) **make sure to include the '/' to make a folder for your files**
+- You can add more folders similarly
+- You can upload all your files into this folder for your assignment
+- If you want to add intstructions then just type them into a new file
+- Finally, give the all folders and files a name 
+- Finally, click Commit new file.
