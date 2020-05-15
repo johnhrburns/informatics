@@ -1,0 +1,925 @@
+---
+title: "MARE 375 Midterm - Student Alcohol Consumption"
+author: "Carson Green"
+date: "4/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+## Introduction 
+
+### My data: https://www.kaggle.com/uciml/student-alcohol-consumption
+
+  This dataset contains a survey of students in a Math course and a Portuguese language course at two secondary schools in Portugal (Gabriel Pereira and Mousinho da Silveira). The dataframes contains a lot of important and interesting social, gender and study information regarding the students at the schools. 
+
+  The contributor of the data suggested that the data could be great for running predictive models such as predicting students final grades. Besides the recommendation from the data's poster, there were a couple other reasons why I choose the dataset. This dataset seemed intresting and easy to work with (including pretty decent metadata), looked like it had enough data with dependent and independent variables to do multiple regression, and contained two csv's allowing me to perform a join. These factors made me think it would be perfect for this midterm assingment.  
+
+  I hope to learn about what socioeconimic and social backgrounds can impact students ability to perform in acadamia and/or find factors that lead to alcohol consumption. I also would be intrested in looking at the differences between each school, maybe again looking at grades and alcohol consumption.
+
+
+## Importing the data 
+
+Before we get to the fun stuff I have to actaully put my data in R... 
+
+```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/carso/OneDrive/Desktop/MARE 375 Midterm")
+
+```
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+student_mat <- read_csv("student-mat.csv")
+```
+
+
+```{r message=FALSE}
+library(readr)
+student_por <- read_csv("student-por.csv")
+
+
+```
+
+
+Changing names for the two dataframes, because I don't want to type more than needed.
+
+```{r}
+sm <- student_mat
+sp <- student_por
+```
+
+
+```{r}
+sm
+```
+
+
+```{r}
+sp
+```
+
+
+
+![](tenor.gif)
+
+### Content of the dataframes
+
+By using the **str()** command, I am able to see how many observations and variables are in my dataframes and the type of data : 
+
+```{r}
+str(sm)
+```
+
+```{r}
+str(sp)
+```
+
+Attributes for both dataframes:
+
+school - student's school (binary: 'GP' - Gabriel Pereira or 'MS' - Mousinho da Silveira)
+
+sex - student's sex (binary: 'F' - female or 'M' - male)
+
+age - student's age (numeric: from 15 to 22)
+
+address - student's home address type (binary: 'U' - urban or 'R' - rural)
+
+famsize - family size (binary: 'LE3' - less or equal to 3 or 'GT3' - greater than 3)
+
+Pstatus - parent's cohabitation status (binary: 'T' - living together or 'A' - apart)
+
+Medu - mother's education (numeric: 0 - none, 1 - primary education (4th grade), 2 – 5th to 9th grade, 3 – secondary education or 4 – higher education)
+
+Fedu - father's education (numeric: 0 - none, 1 - primary education (4th grade), 2 – 5th to 9th grade, 3 – secondary education or 4 – higher education)
+
+Mjob - mother's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')
+
+Fjob - father's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')
+
+reason - reason to choose this school (nominal: close to 'home', school 'reputation', 'course' preference or 'other')
+
+guardian - student's guardian (nominal: 'mother', 'father' or 'other')
+
+traveltime - home to school travel time (numeric: 1 - 3 hours)
+
+studytime - weekly study time (numeric: 1 - 10 hours)
+
+failures - number of past class failures (numeric: n if 1<=n<3, else 4)
+
+schoolsup - extra educational support (binary: yes or no)
+
+famsup - family educational support (binary: yes or no)
+
+paid - extra paid classes within the course subject (Math or Portuguese) (binary: yes or no)
+
+activities - extra-curricular activities (binary: yes or no)
+
+nursery - attended nursery school (binary: yes or no)
+
+higher - wants to take higher education (binary: yes or no)
+
+internet - Internet access at home (binary: yes or no)
+
+romantic - with a romantic relationship (binary: yes or no)
+
+famrel - quality of family relationships (numeric: from 1 - very bad to 5 - excellent)
+
+freetime - free time after school (numeric: from 1 - very low to 5 - very high)
+
+goout - going out with friends (numeric: from 1 - very low to 5 - very high)
+
+Dalc - workday alcohol consumption (numeric: from 1 - very low to 5 - very high)
+
+Walc - weekend alcohol consumption (numeric: from 1 - very low to 5 - very high)
+
+health - current health status (numeric: from 1 - very bad to 5 - very good)
+
+absences - number of school absences (numeric: from 0 to 93)
+
+### Grades related to course subject, Math or Portuguese:
+
+G1 - first period grade (numeric: from 0 to 20)
+
+G2 - second period grade (numeric: from 0 to 20)
+
+G3 - final grade (numeric: from 0 to 20, output target)
+
+#### Descriptions 
+
+The data were obtained in a survey of students in math and portuguese language courses in secondary school (Gabriel Pereira and Mousinho da Silveira) for a study conducted in 2008. 
+
+Source: P. Cortez and A. Silva. Using Data Mining to Predict Secondary School Student Performance. In A. Brito and J. Teixeira Eds., Proceedings of 5th FUture BUsiness TEChnology Conference (FUBUTEC 2008) pp. 5-12, Porto, Portugal, April, 2008, EUROSIS, ISBN 978-9077381-39-7.
+
+Sadly the metadata does not provide the details of the previous study or the methods for how the survey was conducted. This is quite sad as it leaves me with no understanding of why the sruvey was conducted. Though we have no idea why the survey was conducted, an adequate amount of metadata was provided.
+
+Thankfully I have not noticed any problems with the data set that could mess up my analysis. I guess we will both figure out if this is a true statement by the end of this markdown.
+
+Some questions I was hoping to look at would be:
+
+1. What predictor variables have the most effect on lower grade values for both courses?
+2. What predictor variables have the most effect on high grade values for both courses?
+3. Which school system had more observations of high levels of work day and weekend alcohol consumption.
+4. What predictor variables can predict low levels of work day and weekend alcohol consumption.
+
+### Tidy?
+
+Let's see if the data is Tidy!
+
+##### Math Course
+```{r}
+
+head(sm)
+```
+
+
+##### Portuguese Language Course
+```{r}
+
+head(sp)
+```
+
+In my data, each variable has its own column and each observation hsd its own row.
+
+Sadly, I don't know if my data has unique keys.
+
+I can't move forward until my data is 100% tidy, so I will check for unique keys
+
+
+### First 
+
+I will want to see if my data has any primary keys 
+
+I am going to use many identifiers that I think will help me reach a primary key:
+
+Math Course
+```{r message=FALSE}
+# Making sure my packages are loaded
+detach(package:readr, unload = TRUE)
+library(tidyverse)
+## Counting repeated observations to see if I have a primary key
+
+sm %>%
+count(school,sex,age,address,famsize,Pstatus,Medu,Fedu,Mjob,Fjob,reason,nursery,internet) %>%
+filter(n >1)
+
+```
+Portuguese Language Course
+```{r}
+sp %>%
+count(school,sex,age,address,famsize,Pstatus,Medu,Fedu,Mjob,Fjob,reason,nursery,internet) %>%
+filter(n >1)
+```
+
+
+It looks like with this set of identifiers, we do not have a primary key 
+
+
+
+#### Let me add in the grades to see if I can get a primary key 
+
+Math Course
+```{r}
+
+sm %>%
+count(school,sex,age,address,famsize,Pstatus,Medu,Fedu,Mjob,Fjob,reason,nursery,internet, G1,G2,G3) %>%
+filter(n >1)
+
+```
+
+Portuguese Language Course 
+```{r}
+sp %>%
+count(school,sex,age,address,famsize,Pstatus,Medu,Fedu,Mjob,Fjob,reason,nursery,internet, G1,G2,G3) %>%
+filter(n >1)
+```
+
+It looks like I still don't have a primary key for both schools :( 
+
+
+
+### Time to make a surrogate key
+
+```{r}
+library(dplyr)
+
+#### Adding ID's to my data 
+
+smi <- mutate(sm,id = dplyr::row_number(G1))
+spi <- mutate(sp,id = dplyr::row_number(G1))
+
+
+```
+
+Made ID's by grade because it was rather variable 
+
+##### Printing my new data frames
+
+```{r}
+smi
+```
+Primary key check:
+```{r}
+ smi %>% count(id) %>% filter(n >1)
+
+```
+
+
+```{r}
+spi
+
+
+```
+
+Primary key check:
+```{r}
+ spi %>% count(id) %>% filter(n >1)
+
+```
+
+Looks like I have made a primary key!
+
+
+### Imputations 
+
+Okay time for imputations! 
+
+Loading the packages I need!
+
+```{r message=FALSE}
+detach(package:tidyverse, unload = TRUE)
+library(mice)
+
+```
+
+Looking for missing data in my dataframes
+
+Math Course
+```{r}
+md.pattern(smi)
+
+```
+
+Portuguese Language Course  
+```{r}
+md.pattern(spi)
+```
+
+My data doesn't have any missing values, so I will have to delete some stuff before I make imputations!
+
+
+Deleting stuff and making NA!
+
+```{r}
+library(naniar)
+
+smi2 <- smi %>% replace_with_na_all(condition = ~.x == 2)
+spi2 <- spi %>% replace_with_na_all(condition = ~.x == 2)
+```
+Decided to replace all twos with NA cause that seemed fun 
+
+```{r}
+smi2 
+spi2
+```
+
+
+Performing the imputation! 
+
+Using PMM (Predictive Mean Matching) for method, because I am doing the imputation on  numeric variables.
+
+> "smii <- mice(smi2, m = 5, maxit = 50, method = 'pmm', seed = 500)"
+
+> "spii <- mice(spi2, m = 5, maxit = 50, method = 'pmm', seed = 500)"
+
+This isn't in a coding box because the output is way too long, but I ran it below without showing the output. 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+smii <- mice(smi2, m = 5, maxit = 50, method = 'pmm', seed = 500)
+
+spii <- mice(spi2, m = 5, maxit = 50, method = 'pmm', seed = 500)
+```
+
+### Looking at the imputation
+
+Math Course:
+```{r}
+smii_imp <- complete(smii,3)
+
+```
+
+
+
+Portuguese Language Course :
+```{r}
+spii_imp <- complete(spii,3)
+
+```
+
+
+```{r}
+head(smii_imp)
+head(spii_imp)
+```
+
+
+It seems like the imputation did a decent job. It replaced all of the NA values with one, which is close to two, but not quite!
+
+
+
+
+## Joining Datasets
+
+Because my two dataframes both deal with students in either a Math course or a Portuguese language course at two secondary schools in Portugal (Gabriel Pereira and Mousinho da Silveira), I can combine the data by merging the students who are in both classes together.
+
+ The metadata of the datset I am using said that there is an overlap of 382 students that are in both the math class and the potuguese language class. They gave a suggestion on what to merge to capture the 382 students. Below is the code I used to merge both classes into one master data frame. 
+ 
+It was suggested to merge the two data sets by the following variables: 
+
+"school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"
+
+Here is the merge they suggested 
+```{r}
+All = merge(smi,spi,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(All)) # 382 students
+```
+
+I am intrested in seeing if this combined data set actually contains 382 unique students who attend both schools, so I will do some more counts 
+
+```{r}
+All %>% count(school,sex,age,address,famsize,Pstatus,Medu,Fedu,Mjob,Fjob,reason,nursery,internet) %>% filter(n >1)
+```
+
+Seems like this isn't truly unique counts of students.
+I guess I will take a crack at it!
+
+
+I think I will merge the data with all variables to make sure that we can see what is going on
+I did not include G1,G2,G3 or paid variables. This is because the paid variable shouldn't effect our merge and the grades need to be seperate for each class.
+
+Merge by default uses an inner join to join the data, which is what I need for this join
+
+```{r}
+All2 <- merge(smi,spi,by=c("school","sex","age","address","famsize","Pstatus",
+                            "Medu","Fedu","Mjob","Fjob","reason","nursery","internet",
+                            "guardian","traveltime","studytime","failures",
+                            "schoolsup","famsup","activities","higher","romantic",
+                            "famrel","freetime","goout","Dalc","Walc","health","absences"))
+print(nrow(All2)) # 85 students
+```
+
+Time to check if we have repeats!
+
+```{r}
+All2 %>% count(school,sex,age,address,famsize,Pstatus,
+                            Medu,Fedu,Mjob,Fjob,reason,nursery,internet, guardian,traveltime,studytime,failures,
+                            schoolsup,famsup,activities,higher,romantic,
+                            famrel,freetime,goout,Dalc,Walc,health,absences) %>% filter(n >1)
+```
+
+Looks like we do not have any repeated rows!
+
+
+### Working with a Master Dataframe
+
+Now that I have joined my data, I want to make some dataframes that I can use for plots! 
+```{r}
+Master <- All2
+```
+
+I should rename some of my rows so my master dataframe is easier to interpret! 
+
+```{r message=FALSE}
+library(plyr)
+ Master <- rename(Master, c("paid.x" = "paid.m", "G1.x" = "G1.m",  "G2.x" = "G2.m",  "G3.x" = "G3.m", "id.x" = "id.m", "paid.y" = "paid.p", "G1.y" = "G1.p",  "G2.y" = "G2.p", "G3.y" = "G3.p", "id.y" = "id.p"))
+```
+
+Renamed the x's to m for Math course and the y's to p for the Portuguese language class.
+
+```{r}
+head(Master)
+```
+
+This datframe looks good, but I also want to make a data frame without any categorical variables!
+
+I want to keep all of the possible predictor variables so that I can compare and contrast them with each other, but this next dataframe will just have numbers.
+
+### Making a dataframe with no categorical variables 
+```{r}
+Mastercor <- select(Master,-c(school,sex,address,famsize,Pstatus,Mjob,Fjob,reason,nursery,internet,guardian,schoolsup,famsup,activities,higher,romantic,paid.m,paid.p,id.m,id.p,G1.m,G2.m,G1.p,G2.p))
+```
+
+
+## Plotting and Analyzing the Data!!
+
+Time to get an idea of what is going with my dataset! 
+
+First I'm going to use some base functions to look at my data 
+```{r}
+head(Master)
+
+summary(Master)
+
+
+```
+
+## Base Plot to look at my data
+
+```{r}
+
+plot(Mastercor)
+```
+
+Hard to tell exactly what is going on, I think I will explore further by creating a correlation matrix of some variables I am intrested in so that I can start thinking about how I want to run a statistical model on this data. 
+
+
+## Correlation 
+
+Going to do some correlation in hopes of understanding my data
+
+```{r}
+library(dplyr)
+
+#Removing variables that I don't need for my correlation analysis!
+Mastercor <- select(Master,-c(school,sex,address,famsize,Pstatus,Mjob,Fjob,reason,nursery,internet,guardian,schoolsup,famsup,activities,higher,romantic,paid.m,paid.p,id.m,id.p,G1.m,G2.m,G1.p,G2.p))
+
+# Running a correlation
+Mastercorcor <- cor(Mastercor)
+
+# Need this package to plot!
+library(corrplot)
+# Plotting my findings!
+corrplot(Mastercorcor)
+```
+
+By looking at this correlation matrix, I can see some strong negative and positive correlations. Listed below are some that find intresting/and or want to analyze:
+
+traveltime - age - moderate positive
+
+Medu - Fedu - moderate positive 
+
+failures - Walc - moderate positive 
+
+failures - absences
+
+Dalc - Walc - Strong postive 
+
+Failures - Medu and Fedu - strong negative 
+
+studytime - Walc and Dalc - moderate negative 
+
+goout - Walc - moderate positive
+
+age - G3.m - moderate negative 
+
+study time - G3.p - moderate positive 
+
+failures - G3.p - moderate negative 
+
+health - G3.p - moderate negative 
+
+
+### More Plots 
+
+![](kirby.gif)
+
+Time to use some plots to  determine the best statistical approach 
+
+Histograms of some important variables:
+
+
+```{r}
+hist(Master$G3.m, border="black", 
+     col="orange", main = "Histogram of Math Course Grades", xlab = "Grades for Math Course") 
+  
+abline(v=mean(Master$G3.m),col="blue")
+
+abline(v=median(Master$G3.m),col="red")
+```
+
+
+```{r}
+hist(Master$G3.p, border="black", 
+     col="purple", main = "Histogram of Portuguese Language Course Grades", xlab = "Grades for Portuguese Language Course") 
+  
+abline(v=mean(Master$G3.p),col="blue")
+
+abline(v=median(Master$G3.p),col="red")
+```
+
+```{r}
+
+hist(Master$studytime, border="black", 
+     col="yellow", main = "Histogram of Studytime", xlab = "Study Time (Hours)") 
+  
+abline(v=mean(Master$studytime),col="blue")
+
+abline(v=median(Master$studytime),col="red")
+```
+
+```{r}
+hist(Master$failures, border="black", 
+     col="red", main = "Histogram of Failures in Previous classes", xlab = "Failures") 
+  
+abline(v=mean(Master$failures),col="blue")
+
+abline(v=median(Master$failures),col="green")
+```
+
+
+```{r}
+hist(Master$age, border="black", 
+     col="green", main = "Histogram of Age", xlab = "Age") 
+  
+abline(v=mean(Master$age),col="blue")
+
+abline(v=median(Master$age),col="red")
+```
+
+
+```{r}
+hist(Master$goout, border="black", 
+     col="brown", main = "Histogram of Going out", xlab = "Going out") 
+  
+abline(v=mean(Master$goout),col="blue")
+
+abline(v=median(Master$goout),col="red")
+```
+
+
+```{r}
+hist(Master$Fedu, border="black", 
+     col="blue", main = "Histogram of Father's Education", xlab = "Father's Education") 
+  
+abline(v=mean(Master$Fedu),col="green")
+
+abline(v=median(Master$Fedu),col="red")
+```
+
+```{r}
+hist(Master$Medu, border="black", 
+     col="light blue", main = "Histogram of Mother's Education", xlab = "Mother's Education") 
+  
+abline(v=mean(Master$Medu),col="green")
+
+abline(v=median(Master$Medu),col="red")
+```
+
+
+## Statistical Modeling
+
+#### Now that I have a good idea of what variables are significantly correlated and what the spread of my variables look like, I think I can start trying to run a statitical model! 
+Because the questions I want to answer deal with predicting grades and alcohol consumption using some of the variables in the dataset, regression seems like the best method to analyze my data. I can run multiple regression for my numeric variables and maybe even run a logestic regression for some of my categorical variables!
+
+## Data!
+
+Changing my Master data frame so that it only has final grades and also removing some other unneeded variables 
+
+```{r}
+
+MasterR <-  select(Master,-c(id.m,id.p,G1.m,G2.m,G1.p,G2.p,paid.p,paid.m))
+
+```
+
+### Running a Multiple Regression Model
+
+##### I think I will do my first model looking at possibly predicting grades for the portuguese language class using the predictor variables in my dataframe. There are many different models I can run, but predicting grades and alcohol consumption were my main questions I was hoping to look at.
+
+I am using Medu, Fedu and studytime in my model, because when I ran my correlation analysis, these three variables seemed to impact grade levels for the portuguese langauge course the most.
+```{r message=FALSE}
+library(tidyverse)
+#Fitting a basic model to try and predict grades for the Portuguese language course
+fit1 <- lm(G3.p ~ Medu + Fedu + studytime, data = MasterR)
+
+summary(fit1) 
+```
+
+Interpretation: 
+
+First, we can see that the p-value of the F-statistic is 0.0007604, which is  significant. This means that, at least, one of the predictor variables is significantly related to the outcome variable of grades in the portuguese language course.
+
+In this first model, with Medu, Fedu, and studytime as predictor variables, the adjusted R2 = 0.1566. This means that, “15% of the variance in the measure the portuguese language course can be predicted mother's education level, father's education level and amount of time spent studying."
+
+
+Looking at beta coefficients
+
+```{r}
+summary(fit1)$coefficient
+```
+
+By looking at the model we can see that for predicting grades in the Portuguese language course Fedu (Father's Education Level) is not significant for our model. We can also see that study time has has a greater impact on grades in the portuguese language course than Medu (Mother's education level), but only by a little.
+
+
+### Comparing models:
+
+Because the Fedu variable is not significant, I am going to remove it from the model and compare the new model to the old one.
+
+
+```{r}
+# New model without Fedu
+fit2 <- lm(G3.p ~ Medu + studytime, data = MasterR)
+
+summary(fit2) 
+```
+
+In my model, with Medu and studytime predictor variables, the adjusted R2 = 0.1607. This means that “16% of the variance in the measure of grades in the portuguese language course can be predicted mother's education level and amount of time spent studying."
+
+
+After analyzing my two models, I now want to compare my two models to see which is better at predicting grades for the portuguese language course 
+
+### Comparing Model 1 and Model 2
+```{r}
+anova(fit1, fit2)
+```
+If the p-value is not sufficiently low (usually greater than 0.05), we should favor the simpler model.
+We can see from the table, that we have a Df of -1 (indicating that the less complex model has one less parameter). It also shows a p-value of (0.4376). Meaning that removing the Fedu Variable from the model did lead to a significantly improved fit over the first model.(Favor simpler model)
+ 
+
+### Plot to compare estimates with 
+```{r}
+library(jtools)
+
+library(ggstance)
+
+plot_summs(fit1, scale = TRUE, fit2, plot.distributions = TRUE)
+```
+
+### Checking all residuals to ensure there are no distinct patterns
+
+
+```{r}
+ par(mfrow=c(2,2))
+ plot(fit2)
+```
+I don't see any distinct patterns, so I will move on to plotting my model
+
+### Plotting model for predicting grades for the portuguese language course 
+
+#### Just data points for each predictor variable plots
+```{r}
+library(ggplot2)
+
+library(jtools)
+
+library(ggstance)
+
+effect_plot(fit2, pred = studytime, interval = TRUE, plot.points = TRUE)
+
+effect_plot(fit2, pred = Medu, interval = TRUE, plot.points = TRUE)
+
+```
+
+#### Now looking at estimates with distributions 
+```{r}
+plot_summs(fit2, scale = TRUE)
+plot_summs(fit2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+
+### I wanna do a 3D plot to get the best view of my model!
+
+ Making the two predictors and the response into specific objects:
+
+```{r}
+var_1 <- Master$studytime
+
+var_2 <- Master$Medu
+
+var_3 <- Master$G3.p
+```
+
+Plot time!
+
+```{r}
+library(plotly)
+
+p <- plot_ly(Master, 
+             x = var_1, 
+             y = var_2, 
+             z = var_3) %>%
+  
+  add_markers(color = ~G3.p) %>%
+ 
+  layout(scene = list(xaxis = list(title = 'Study Time'),
+                      yaxis = list(title = 'Mothers Education'),
+                      zaxis = list(title = 'Final Grades for Portuguese Language Course ')))
+
+```
+
+###  3D Model!
+```{r}
+p
+```
+
+
+### Well.... I did some regression, but I also wanna look at what predictor variables may predict Weekend Alcohol Consumption... so I guess I'll do some more regressions...
+
+I will use failures, going out, and weekday alcohl in my model, because when I ran my correlation matrix and plotted my variables, these three seemed to have the most impact on weekend alcohol consumption. 
+```{r}
+fit3 <- lm(Walc ~ failures + goout + Dalc, data = MasterR)
+
+summary(fit3) 
+```
+
+Interpretation: 
+
+We can see that the p-value of the F-statistic is 5.351e-12, which is highly significant. This means that, at least, one of the predictor variables is significantly related to the outcome variable of weekend alcohol consumption.
+
+Also:
+In this new model, with failures, goingout, and Dalc as predictor variables, the adjusted R2 = 0.4753 . This means that “47% of the variance in the measure of Weekend Alcohol consumption can be predicted by amount of failures in classes, number of times the student go's out during the week, and by weekday alcohol consumption"
+
+
+
+Looking at beta coefficients
+
+```{r}
+summary(fit3)$coefficient
+```
+
+By looking at the model we can see that for predicting weekend alcohol consumption, all variables are significant for our model. We can also see that Dalc (Weekday alcohol consumption) has the a greatest impact on weekend alcohol consumption by a large margin. going out seems to have the least impact on weekend alcohol consumption, so it might be good to run another model without it.
+
+(I Could also add variables to this model, but not many other predictor variables were significantlly correlated)
+
+
+### Comparing models:
+
+Because the goingout variable isn't as significant in this model as the other variables I am going to run a model without it!
+
+
+```{r}
+fit4 <- lm(Walc ~ failures +  Dalc, data = MasterR)
+
+summary(fit4) 
+```
+
+In this model, with failures and Dalc as predictor variables, the adjusted R2 = 0.4143. This means that “41% of the variance in the measure of Weekend Alcohol consumption can be predicted by amount of failures in classes and by weekday alcohol consumption"
+
+This is a smaller R-squared value compared to my first model, so I will compare them with anova!
+
+### Comparing Model 3 and Model 4
+```{r}
+anova(fit3, fit4)
+```
+
+The resulting p-value is sufficiently low (less than 0.05), we conclude that the more complex model is significantly better than the simpler model, and thus favor the more complex model.
+
+We can see from the table, that we have a Df of -1 (indicating that the less complex model has one less parameter). It also shows a p-value of (0.001706). Meaning that removing the goingout Variable from the model did not lead to a significantly improved fit over the first model and we should favor the more complex model.
+
+### Plotting my comparison 
+```{r}
+library(jtools)
+
+library(ggstance)
+
+plot_summs(fit3, scale = TRUE, fit4, plot.distributions = TRUE)
+```
+
+### Checking all residuals to ensure there are no distinct patterns
+
+```{r}
+ par(mfrow=c(2,2))
+ plot(fit3)
+```
+
+I don't see any distinct patterns, so I will move on to plotting my model
+
+### Plotting model for predicting Weekend Alcohol consumption
+
+#### Just data points for each predictor variable plots
+```{r}
+library(ggplot2)
+
+library(jtools)
+
+library(ggstance)
+
+effect_plot(fit3, pred = Dalc, interval = TRUE, plot.points = TRUE)
+
+effect_plot(fit3, pred = goout, interval = TRUE, plot.points = TRUE)
+
+effect_plot(fit3, pred = failures, interval = TRUE, plot.points = TRUE)
+```
+
+
+#### Now looking at estimates with distributions 
+```{r}
+plot_summs(fit3, scale = TRUE)
+plot_summs(fit3, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+
+#### This plot is great and I'd love to do a 3D model, but sadly, I am unsure how to plot this because it has 3 predictor variables, but I will still run a 3D model for my other model without the "goingout" Variable.
+
+
+### Last 3D Model (Without goingout variable)
+
+ Making the two predictors and the response into specific objects:
+
+```{r}
+var_4 <- Master$Dalc
+
+var_6 <- Master$failures
+  
+var_7 <- Master$Walc
+```
+
+Plot time!
+
+```{r}
+library(plotly)
+
+a <- plot_ly(Master, 
+             x = var_4, 
+             y = var_6, 
+             z = var_7) %>%
+  
+  add_markers(color = ~Walc) %>%
+ 
+  layout(scene = list(xaxis = list(title = 'Weekday Alcohol Consumption'),
+                      yaxis = list(title = 'Class Failures'),
+                      zaxis = list(title = 'Weekend Alcohol Consumption')))
+
+```
+
+###  3D Model of model 4!
+```{r}
+a
+```
+
+
+
+Conclusion for Multiple Regression:
+
+For Grades in Portuguese language course
+
+For a 1 Unit increase in Mother's education level, with all other predictors held constant, we would expect to see a 0.6894 increase in Grades for the Portuguese language course
+
+And for a 1 Unit increase in study time, with all other predictors held constant, we would expect to see a 0.9256 increase in Grades for the Portuguese language course
+
+
+For Weekend Alcohol Consumption:
+
+For a 1 Unit increase failures, with all other predictors held constant, we would expect to see a 0.6790207 increase in weekend alcohol consimption
+
+And for a 1 Unit increase in going out, with all other predictors held constant, we would expect to see a 0.2881807 increase in weekend alcohol consimption
+
+And for a 1 Unit increase in Daily Alcohol Consumption, with all other predictors held constant, we would expect to see a 1.2105529 increase in weekend alcohol consimption
+
+
+
+
+
+#### Conclusion 
+
+![](drake.gif)
+
+This assignment was fun, I learned a lot in terms of how to create a story and move through a statistical analysis.
+
+In the future, it would be cool to run more regression models, because there are many variables to predict from and I didn't look at grades for the math course.
+
+(Also logestic regression with the categorical variables would be an intresting analysis)
+
+
+
+
+ 
