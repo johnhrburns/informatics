@@ -1,0 +1,308 @@
+---
+title: "Informatics HW"
+author: "Carson"
+date: "4/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Impoting the Data!!!
+
+```{r}
+setwd("C:/Users/carso/OneDrive/Desktop/Informatics HW")
+
+library(readr)
+
+# Groundwater
+gwd <- read.csv("gwd_all_raw.csv", row.names = 1) 
+
+
+gwd[is.na(gwd)] <- 0
+
+
+
+# Physical factors
+pred1 <- read.csv("gwd_pred.csv", row.names = 1) 
+
+
+pred1[is.na(pred1)] <- 0
+
+
+pred.norm <- decostand(pred1, "normalize")
+
+
+```
+
+Looking at the Data!?!?!? 
+```{r}
+
+
+raw <- gwd
+pred <- pred1
+
+View(raw)
+View(pred)
+
+```
+
+
+### Making tabs!!
+
+## (iii) -PCA{.tabset}
+```{r}library("FactoMineR")
+library("factoextra")
+```
+### __Physical & chemical data__
+
+
+
+## Analysis 
+
+#### Packages
+```{r}
+library(ade4)
+library(vegan)
+library(gclus)
+library(ape)
+
+```
+
+Just data - found online 
+```{r}
+raw.pca1 <- prcomp(raw, center = TRUE,scale. = TRUE)
+raw.pca1
+```
+
+## Water stuff :)
+```{r}
+
+#PCA
+
+
+raw.pca <- rda(raw, scale = TRUE)
+raw.pca
+
+raw1 <- raw.pca$CA$eig
+
+source("evplot.R")
+evplot(raw1)
+```
+Broken stick model:
+
+% Variation explained in the model for each pc - use pc1 and pc2 because the explain the most variance in my model - probably around 70% together!!
+
+
+# Physical 
+```{r}
+pred.pca <- rda(pred, scale = TRUE)
+pred.pca
+
+pred1 <- pred.pca$CA$eig
+
+source("evplot.R")
+evplot(pred1)
+```
+
+
+## Basic clean PCA Water 
+```{r}
+source("cleanplot.pca.R")
+cleanplot.pca(raw.pca, point = TRUE) 
+```
+ - alkalinity out of the circle etc. 
+ - 
+
+### physical 
+```{r}
+source("cleanplot.pca.R")
+cleanplot.pca(pred.pca, point = TRUE) 
+```
+DO_sat and diss right angle? 
+
+
+###Basics
+Any given pair of
+axes, the variables that have vectors longer than this radius
+make a higher contribution than average and can be
+interpreted with confidence.
+ex. Alkalinity 
+
+
+
+
+## Clustering with water quality
+```{r}
+#Transform
+raw.hel <- decostand(raw, "hellinger")
+
+raw.w <- hclust(dist(scale(raw)), "ward")
+
+raw.w
+
+gr <- cutree(raw.w, k = 4)
+
+gr1 <- levels(factor(gr))
+
+raw.sc1 <- scores(raw.pca, display = "wa", scaling =1)
+
+ z <- plot(raw.pca, display = "wa", scaling = 1,
+type = "n", main = "PCA correlation with
+clusters for ground water data")
+
+ for (i in 1:length(gr1)) {points(raw.sc1[gr==i,],
+pch = (14 + i), cex = 2, col = i+1)}
+
+     text(raw.sc1, row.names(raw), cex = 0.7, pos = 3)
+    
+      ordicluster(z, raw.w, col = "black")
+      
+     
+
+
+```
+
+Can see 4 groups of clusters!! - gives us a good idea at what variables are similiar and have the most impact.
+
+## More clustering with physical factors:
+
+```{r}
+pred.pca <- rda(pred, scale = TRUE)
+
+
+ pred.hel <- decostand(pred, "hellinger")
+
+pred.w <- hclust(dist(scale(pred)), "ward")
+
+pred.w
+
+gr3 <- cutree(pred.w, k = 4)
+
+gr4 <- levels(factor(gr3))
+
+pred.sc1 <- scores(pred.pca, display = "wa", scaling =1)
+
+ z <- plot(pred.pca, display = "wa", scaling = 1,
+type = "n", main = "PCA correlation with
+clusters for physical factors")
+
+ for (i in 1:length(gr4)) {points(pred.sc1[gr3==i,],
+pch = (14 + i), cex = 2, col = i+1)}
+
+     text(pred.sc1, row.names(pred), cex = 0.7, pos = 3)
+    
+      ordicluster(z, pred.w, col = "black")
+```
+
+
+Heatmap!
+```{r}
+dend <- as.dendrogram(raw.ch.ward)
+heatmap(as.matrix(raw.ch), Rowv=dend, symm=TRUE,
+margin=c(3,3))
+
+```
+“Hot” (white hot) values represent high similarities and are located
+close to the diagonal.
+
+
+
+
+## Doesn't work well... but was fun
+
+### NMDS!!!!
+
+```{r}
+ raw.nmds <- metaMDS(raw, distance = "bray")
+
+ raw.bray <- vegdist(raw)
+ raw.nmds$stress
+
+ plot(raw.nmds, type = "t", main =
+paste("NMDS/Bray - Stress=",
+round( raw.nmds$stress,3)))
+ 
+ par(mfrow=c(1,2))
+stressplot(raw.nmds, main = "Shepard Plot")
+gof = goodness(raw.nmds)
+
+ plot(raw.nmds, type = "t", main = "Goodness of
+fit")
+ points(raw.nmds, display = "sites", cex =
+gof*200)
+
+ 
+```
+
+Not a huge scatter! - pretty well perserved 
+Small bubble - good fit!
+
+```{r}
+raw.bray.ward <- hclust(raw.bray, "ward")
+raw.bw.groups <- cutree(raw.bray.ward, k=4)
+grp.lev <- levels(factor(raw.bw.groups))
+
+raw.sc <- scores(raw.nmds)
+v <- ordiplot(raw.sc, type = "n", main =
+"NMDS/Bray - clusters Ward/Bray")
+
+for (i in 1:length(grp.lev))
+{points(raw.sc[raw.bw.groups==i,], pch=(14-i),
+cex=2, col=i+1)}
+
+text(raw.sc, row.names(raw), pos=2, cex=0.5)
+ordicluster(v, raw.bray.ward, col="black")
+
+ordiellipse(raw.nmds, groups = raw.bw.groups,
+draw = "polygon", lty = 1, col = "grey90")
+
+raw.fit <- envfit(raw.nmds, raw, permutations =
+999)
+
+plot(raw.fit, p.max = 0.01, col = "black", cex =
+0.7)
+
+
+
+
+```
+
+```{r}
+pred.nmds <- metaMDS(Pred, distance = "bray")
+ pred.bray <- vegdist(Pred)
+ pred.bray.ward <- hclust(pred.bray, "ward")
+pred.bw.groups <- cutree(pred.bray.ward, k=4)
+grp.lev2 <- levels(factor(pred.bw.groups))
+sit.sc2 <- scores(pred.nmds)
+
+p2 <- ordiplot(sit.sc2, type = "n", main =
+"NMDS/Bray - clusters Ward/Bray")
+for (i in 1:length(grp.lev2))
+{points(sit.sc2[pred.bw.groups==i,], pch=(3-i),
+cex=2, col=i+8)}
+
+text(sit.sc2, row.names(pred), pos=4, cex=0.7)
+
+ordihull(pred.nmds, groups = pred.bw.groups, draw =
+"polygon", lty = 1, col = "grey90") 
+
+pred.fit <- envfit(pred.nmds, Pred, permutations =
+999)
+
+plot(pred.fit, p.max = 0.01, col = "black", cex =
+0.7)
+
+```
+
+
+
+
+
+
+
+
+
+
+
