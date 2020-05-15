@@ -1,0 +1,214 @@
+---
+title: "MARE375_Rmarkdown"
+author: "Carson Green"
+date: "February 23, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown Assingment
+
+
+
+### Question 3: 
+
+-- The outputs for R notebook and R markdown are rather similiar. Writing an R Notebook document is no different than writing an R Markdown document. The text and code chunk syntax does not differ at all. The main difference is that when executing chunks in an R Markdown document, all the code is sent to the console at once, but in an R Notebook, only one line at a time is sent. This allows execution to stop if a line raises an error. Also R markdown uses knit to run all the R code chunks and create a document, while the notebook uses preview, which shows you only a rendered HTML copy of the contents of the editor. Also, unlike Knit, Preview does not run any R code chunks. 
+
+### Question 4:
+
+-- The only difference in input is the section under "output" at the head of the file that changes depending on which type of document you are knitting to.
+As for output, each document is conveying the same information, but because they are put into completly different formats they differ quite a bit. Word looks the best to me, but I think I have some bias due to using primarly word for making nice papers.
+
+### Question 5:
+
+I went to Kaggle and found some data to work on! 
+
+My data is on the top songs from spotify over the last 10 years! 
+
+Here is a link to where I found the data: https://www.kaggle.com/leonardopena/top-spotify-songs-from-20102019-by-year/metadata
+
+
+## Question 6
+
+
+-- Time for some data analysis!
+
+```{r warning=FALSE}
+setwd("~/Rmarkdown1_Carson_Green")
+library(readr) 
+top10s <- read_csv("top10s.csv")
+songs <- top10s
+head(songs)
+str(songs)
+
+```
+
+
+-- About my Data:
+
+603 observations of 15 variables:
+
+title - Song's title
+
+artist - Song's artist
+
+top genre - the genre of the track
+
+year - Song's year in the Billboard
+
+bpm - Beats.Per.Minute - The tempo of the song.
+
+nrgy - Energy - The energy of a song - the higher the value, the more energtic.
+
+dnce - Danceability - The higher the value, the easier it is to dance to this song.
+
+dB - Loudness..dB.. - The higher the value, the louder the song
+
+live - Liveness - The higher the value, the more likely the song is a live recording
+
+val - Valence - The higher the value, the more positive mood for the song.
+
+dur - Length - The duration of the song.
+
+acous - Acousticness.. - The higher the value the more acoustic the song is.
+
+spch - Speechiness - The higher the value the more spoken word the song contains.
+
+pop - Popularity- The higher the value the more popular the song is.
+
+
+## Question 7
+
+-- Time to plot stuff I'm intrested in! 
+
+
+![](https://media.giphy.com/media/YoEo6RjmCunETk0CSw/giphy.gif)
+
+
+
+-- First I want to see what's up with the populatiry variable!
+
+```{r}
+
+
+hist(songs$pop, xlab = "Popularity", ylab = "Song Count", main = "Histogram of Relative Popularity", border="black", 
+     col="green") 
+
+```
+
+
+Looks like most of the songs in this dataset have a high value for popularity, which would make sense, since this is a dataset containing spotify's most popular songs over the past 10 years. 
+
+But it also looks like there are some songs with low popularity scores.
+I want to look for those songs with low popularity scores. I'll look for songs with popularity score lower than 40!
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+songslesspop <- filter(songs, pop < 40)
+
+# I want to do a quick count to see how many songs are under 40 in popularity
+count(songslesspop)
+
+
+
+hist(songslesspop$pop, xlab = "Popularity", ylab = "Song Count", main = "Histogram of Less Popular songs", border="green", 
+     col="blue")
+
+```
+
+The plot and the count shows us that there are not many songs with a popularity less than 40! Only 32! The histogram I made also shows us that we have 5 songs with a popularity rating of 0. 
+
+For fun I'm gonna look at just those songs real quick! 
+
+```{r}
+zeropop <- filter(songs, pop == 0)
+
+zeropop
+
+```
+
+Looks like
+Hello by	Martin Solveig,
+
+Blow Me (One Last Kiss) by	P!nk,
+
+Not a Bad Thing by	Justin Timberlake,
+
+L.A.LOVE (la la) by	Fergie2, and 
+
+Million Years Ago	by Adele 
+
+Are the songs that made it onto spotify's top songs of the 2010's with a populatiry rating of Zero!
+
+
+
+## More Plotting for fun 
+
+-- I want to look at which years had the highest energy levels and if it correlates with duriation of the songs!
+
+```{r warning=FALSE}
+library(ggplot2)
+
+ggplot(songs, aes(x=year, y=nrgy, fill=dur)) + 
+  labs(title="Plot of Energy by Year, colored by duration", x="Year", y="Energy Level" ) +
+ geom_bar(stat = "identity") + theme_light()
+                       
+```
+
+From the looks of it, there isn't much of a correlation between energy and duration. One cool thing to see though is that in 2015 some songs have energy levels over 6000! These songs are shorter though, as seen by the dark color they have.
+
+## Okay time to do something other than a histogram
+
+-- This time I'm gonna look at the top genres of the data set  
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+# Let me look at what the top genre is 
+tail(names(sort(table(songs$`top genre`))), 1)
+
+ library(dplyr)
+
+
+library(tidyverse)
+
+# Songs top genre count
+
+songsc <- songs %>% group_by(`top genre`) %>% add_tally()
+
+songsctg <- filter(songsc, n > 30) 
+
+
+```
+
+### Lets look 
+
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+options(tibble.width = Inf)
+
+head(songsctg)
+```
+
+### From looking at my filtered data set with counts it seems that the top three song genres are as follows:
+
+1. Dance Pop - 327 counts
+2. Pop - 60 counts
+3. Canadian Pop - 34 counts 
+
+### In conclusion: 
+### Justin Bieber was killing the game during the last decade. 
+
+
+
+
+
+
+
+
+
+
+
+
