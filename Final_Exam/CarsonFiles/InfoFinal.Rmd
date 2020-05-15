@@ -1,0 +1,586 @@
+---
+title: "Informatics Final"
+author: "Carson Green"
+date: "5/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Multivariate analysis!?!
+
+Data: 2016 Global Ecological Footprint
+
+From: https://www.kaggle.com/footprintnetwork/ecological-footprint
+
+### Introduction
+
+From the Metadata:
+
+The ecological footprint measures the ecological assets that a given population requires to produce the natural resources it consumes (including plant-based food and fiber products, livestock and fish products, timber and other forest products, space for urban infrastructure) and to absorb its waste, especially carbon emissions. The footprint tracks the use of six categories of productive surface areas: cropland, grazing land, fishing grounds, built-up (or urban) land, forest area, and carbon demand on land.
+Data frame Without GDP and Quality variables
+
+A nation’s biocapacity represents the productivity of its ecological assets, including cropland, grazing land, forest land, fishing grounds, and built-up land. These areas, especially if left unharvested, can also absorb much of the waste we generate, especially our carbon emissions.
+
+Both the ecological footprint and biocapacity are expressed in global hectares — globally comparable, standardized hectares with world average productivity.
+
+If a population’s ecological footprint exceeds the region’s biocapacity, that region runs an ecological deficit. Its demand for the goods and services that its land and seas can provide — fruits and vegetables, meat, fish, wood, cotton for clothing, and carbon dioxide absorption — exceeds what the region’s ecosystems can renew. A region in ecological deficit meets demand by importing, liquidating its own ecological assets (such as overfishing), and/or emitting carbon dioxide into the atmosphere. If a region’s biocapacity exceeds its ecological footprint, it has an ecological reserve.
+
+**Note** This dataset is from 2016 and only has values from 2016
+
+This dataset contains intresting variables and measurements that may predict a countries ecological footprint or biocapicity. With the data present in this dataframe I hope to analyize correlations between biocapacity, the ecological footprint, and what predicts there values. 
+
+Hypothesis for testing: 
+
+Carbon.Footprint is highly correlated with Ecological.Footprint and Total.Biocapicity
+
+Question to ask:
+
+1. What variables present in this dataset have high correlation with ecological.footprint and total.biocapicity?
+
+
+### Importing the Data
+
+![](matrix.gif)
+
+```{r}
+Carbon <- read.csv("countries.csv", row.names = 1)
+
+Carbonwregion <- Carbon
+Carbon <- subset(Carbon, select=-Region)
+
+
+```
+
+Imputation on missing data?
+
+```{r}
+library(mice)
+
+md.pattern(Carbon)
+```
+
+By Looking at the Mice Matrix and taking a look at the dataframe, we can see that the na values are not random. This means that doing an imputation with Mice may not be the best idea. Instead I will replace the na's with 0 as it seems the row's that contain na's did not have any data used for predicting ecological footprint and biocapicity and probably represent data with no values. 
+
+#Replacing na's with zero
+```{r}
+ Carbon[is.na(Carbon)] <- 0
+
+```
+
+#### Removing GDP and Data Quality Variables 
+```{r}
+
+
+Carbon1 <- subset(Carbon, select=-c(Data.Quality, GDP.per.Capita ))
+
+```
+
+Descriptive Statistics 
+
+```{r}
+str(Carbon1)
+```
+
+
+####  Just Eigan Values
+
+```{r}
+Carbon1.pca1 <- prcomp(Carbon1, center = TRUE,scale. = TRUE)
+Carbon1.pca1
+
+```
+
+
+
+### Principal Component Analysis - PCA (Unconstrained Ordination)
+
+
+```{r}
+# Packages
+library(ade4)
+library(vegan)
+library(gclus)
+library(ape)
+
+#Normalizing values and running pca
+
+Carbon.N <- decostand(Carbon1, "normalize")
+Carbon1.pca <- rda(Carbon.N, scale = TRUE)
+Carbon1.pca
+```
+
+
+### Creating Eigenvalue Broken Stick Model
+```{r}
+Carboneig <- Carbon1.pca$CA$eig
+
+source("evplot.R")
+evplot(Carboneig)
+```
+
+By Looking at the Broken Stick Model we can see that around 55 % of the variability in the data is explained by the first two principal components. Because we are looking for planes along which the variation in the data is maximal, this is a good start. 
+
+
+
+Initial Cleanplots for the Principle component analysis.
+
+```{r}
+source("cleanplot.pca.R")
+cleanplot.pca(Carbon1.pca, point = TRUE) 
+```
+
+
+Interpretation:
+
+ Scaling 1 = distance biplot: the eigenvectors are scaled to unit length. (1)
+Distances among objects in the biplot are approximations of their
+Euclidean distances in multidimensional space. (2) The angles among
+descriptor vectors are meaningless.
+
+ Scaling 2 = correlation biplot: each eigenvector is scaled to the square root of
+its eigenvalue. (1) Distances among objects in the biplot are not approximations of their Euclidean distances in multidimensional space. (2) The angles
+between descriptors in the biplot reflect their correlations.
+
+For any given pair of axes, the variables that have vectors longer than the circle in scaling 1 make a higher contribution than average and can be interpreted with
+confidence.
+
+
+For scaling one we can see a greater contribution than average for:
+
+Biocapacity.Deficit.or.Reserve, Carbon.Footprint, Total.Biocapacity, Forest.Land, Countries.Required, and Earths.Required.
+
+Sadly, it is hard to make out any information about site locations and there relation to the environmental variables from the scaling 1 pca, but I will use clustering later to help us understand the sites.
+
+From the scaling two model, we can see things such as the correlation between Forest.Footprint, Fishing.Water and Cropland present on the right of the model.
+
+There also seems to be positive correlation between HDI, Cropland.Footprint and Fish.Footprint. These three variables are very highly, negatively correlated with population as well. 
+
+Another important negative correlation is shown between Biocapacity.Deficit.or.Reserve and Countries.Required.
+
+
+
+
+### Clustering analysis to look at site differences!
+
+I wasn't able to gain much information about sites from my pca, so it is time for clustering!
+
+```{r}
+
+#Ward clustering
+
+# Chord distances for normalized  data
+carbon.ch <- vegdist(Carbon.N, "euc")
+
+carbon.w <- hclust(dist(scale(carbon.ch)), "ward")
+
+carbon.w
+
+gr <- cutree(carbon.w, k = 4)
+
+gr1 <- levels(factor(gr))
+
+#Scores
+carbon.sc1 <- scores(Carbon1.pca, display = "wa", scaling =1)
+
+ z <- plot(Carbon1.pca, display = "wa", scaling = 1,
+type = "n", main = "PCA correlation with
+clusters for Ecological footprint data")
+
+ for (i in 1:length(gr1)) {points(carbon.sc1[gr==i,],
+pch = (14 + i), cex = 2, col = i+1)}
+
+     text(carbon.sc1, row.names(raw), cex = 0.7, pos = 3)
+    
+      ordicluster(z, carbon.w, col = "grey")
+      
+```
+
+#### Hierarchical clustering - Interpretations:
+
+4 groups! - This clustering approach gives me a better idea of what sites are related. Some sites like the sites in red are rather similiar while the sites in light blue have more spread. 
+
+**Note** - I also tried the clustering with 3,5,6,7 and 8 groups, but they did not give as good clusterings. 
+
+
+## Heatmap: Sites
+```{r}
+# Dendogram of ward clustering
+dend <- as.dendrogram(carbon.w)
+
+heatmap(as.matrix(carbon.ch), Rowv=dend, symm=TRUE, margin=c(3,3))
+```
+
+White values represent high similarities and are located close to the diagonal. (Much like a correlation matrix) 
+
+Ex. Egypt and Afghanistan are similar in values for the variables in the dataframe.
+
+### Moving forward to constrained ordination so that I can test my hypothesis!
+
+
+Redundancy Analysis - RDA (constrained ordination)
+
+```{r message=FALSE}
+#Packages
+library(ade4)
+ library(vegan)
+ library(MASS)
+ library(ellipse)
+ library(FactoMineR)
+
+#Functions:
+
+source("evplot.R")
+source("hcoplot.R")
+```
+
+
+```{r}
+# subsets of data
+
+biocapicity <- Carbon1[,c(9:17)]
+  
+  footprint <- Carbon1[,c(1:8)]
+  
+# Now to make predictor and response data frames. 
+  
+  Predict <- Carbon1[,c(1:7,9:13,15:17)]
+    
+  Response <- Carbon1[,c(8,14)]
+
+
+```
+
+### Running the model 
+```{r include=FALSE}
+Carbon.rda <- rda(Response ~ ., Predict)
+summary(Carbon.rda)
+
+R2adj <- RsquareAdj(Carbon.rda)$adj.r.squared
+R2adj
+```
+
+
+
+#### Here is the code ran in the background:
+
+**Carbon.rda <- rda(Response ~ ., Predict)**
+***summary(Carbon.rda)***
+
+**R2adj <- RsquareAdj(Carbon.rda)$adj.r.squared**
+**R2adj**
+
+
+### Plotting triplot - Scaling 1
+```{r}
+
+
+plot(Carbon.rda, scaling = 1, main = "Triplot RDA of
+Ecological Footprint and Biocapacity data - scaling 1")
+
+ carbon1.sc <- scores(Carbon.rda, choices = 1:2, scaling
+= 1, display = "sp")
+ arrows(0, 0, carbon1.sc[,1], carbon1.sc[,2], length = 0,
+lty = 1, col = "red")
+
+```
+
+Interpretation:
+
+Partitioning of variance:
+                Inertia Proportion
+Total         1.423e+02  1.000e+00
+Constrained   1.423e+02  1.000e+00
+Unconstrained 6.949e-05  4.885e-07
+
+The proportion of the variance explained by the environmental predictors is given under the “Proportion” column for “Constrained”; this is equivalent to the R2 of a multiple regression.
+
+By looking at the proportion under constrained we can see that 100% of the variance is explained, this is probably because the predictor variables are used to calculate the response variables, but it could also be bias because of the number of predictors.
+
+ Looking at the adjusted r squared value of 0.9999995, we can say that 99.5 % of the variation in y is explained by our model, again this is probably because the predictor variables are used to calculate the response variables. 
+
+### Screen plot
+```{r}
+screeplot(Carbon.rda)
+```
+
+
+This screenplot shows us the absurd variation explain in this model.
+
+Because the RDA approximates Euclidean distance we can see that variables like fishing.water, forest.land, and Biocapacity.Deficit.or.Reserve have similar variable values 
+Right-angled projections of object points onto vectors representing response variables approximate variable values for a given object.
+
+The angles between vectors representing response variables and those represent
+ing explanatory variables reflect their (linear) correlation.
+
+This interoretation can help us get an idea of some correlation, for example variables like cropland footprint, earth.required and carbon footprint seem to have some positive correlation with ecological footprint. 
+
+
+
+#### Scaling 2
+```{r}
+
+plot(Carbon.rda, scaling = 2, main = "Triplot RDA of
+Ecological Footprint and Biocapacity data - scaling 2")
+
+carbon2.sc <- scores(Carbon.rda, choices = 1:2, scaling
+= 2, display = "sp")
+arrows(0, 0, carbon2.sc[,1], carbon2.sc[,2], length =
+0, lty = 1, col = "red")
+
+
+```
+
+I also made a plot with Scaling two, because I am looking for correlation between variables.
+
+Some important postive correlations can be seen such as Carbon.Footprint and Ecological.Footprint and Forest.Land and Total.Biocapacity
+
+
+
+
+
+
+
+
+
+
+# Univariate modeling
+
+### Running regression to test my new hypothesis
+
+
+Thanks to the PCA and RDA ran, I now have a better idea of what is going on with my data. It's time for me to run some regression analysis to make some statements about the data. 
+
+Now that I know that the scores in the dataframe were used to create the Total.Ecological.Footprint variable and Total.Biocapacity variable, I want to see what scores best predict the footprint and the total biocapacity.
+
+Thanks to my PCA and RDA I would predict that Total.Ecological.Footprint is best predicted by Carbon.Footprint while Total.Biocapacity is best predicted by Forest.Land or Fishing.Water - 
+
+So here is my new hypothesis for testing:
+
+New Hypothesis: 
+
+Carbon.Footprint best predicts Total.Ecological.Footprint while Forest.Land best models Total.Biocapacity. 
+
+Question 2:
+
+2. What variables present in this dataset have the most influence on total.ecological.footprint and total.biocapicity?
+
+
+### Ecological Footprint 
+
+#### Fitting first model for Ecological Footprint with all predictors (top down model selection) 
+```{r}
+fit1 <- lm(Total.Ecological.Footprint ~ Population..millions. + HDI + Cropland.Footprint + Grazing.Footprint + Forest.Footprint + Carbon.Footprint + Fish.Footprint, data = footprint)
+
+summary(fit1) 
+```
+
+From this model we see that only carbon.foorprint and Forest.Footprint are significant. 
+This is intresting, because I would believe that with all of the other predictors in the model we would have more significant variables. It may be because carbon.footprint is a covariate and scewing the results. 
+
+
+### Running model with out carbon footprint 
+
+```{r}
+fit2 <- lm(Total.Ecological.Footprint ~ Population..millions. + HDI + Cropland.Footprint + Grazing.Footprint + Forest.Footprint +  Fish.Footprint, data = footprint)
+
+summary(fit2) 
+```
+Looking at the results of the regression, it seems like the carbon.footprint was overshadiowing some significants in the data. Human Density Index and Cropland.Footprint have some decent estimates. I will move to simple linear regression to further test my hypothesis. 
+
+### Time to run some standard linear regression to test variables!
+
+
+I am going to run models on three variables that I believe will predict Total.Ecological.Footprint well based on my PCA and Multiple regression model. The three models I will run will be for HDI, Forest.Footprint, and Carbon.footprint.
+
+
+
+ ### HDI (Human Development Index)
+```{r}
+fit3 <- lm(Total.Ecological.Footprint ~ HDI, data = footprint)
+summary(fit3)
+```
+
+### Beautiful HDI Plot
+```{r warning=FALSE}
+ library(ggplot2)
+library(ggExtra)
+
+g3 <- ggplot(Carbonwregion, aes(Total.Ecological.Footprint, HDI, color=Region, size=1)) + 
+  geom_count() + ggtitle("HDI and Total Ecological Footrprint") +
+  xlab("Total Ecological Footrprint") + ylab("Human Development Index") +
+  geom_smooth(method="lm", colour="black", size=0.5)  +
+  annotate("text", x = 7.5, y = 2, size = 3.0, color = "gray20",
+           label = "Statistically Significant: p-value: 2.143e-07***")
+
+ggMarginal(g3, type = "histogram", fill="transparent")
+
+```
+
+
+Interpretation:
+
+1. Null : No significant association between HDI and the Total.Ecological.Footprint variable.
+2. Results : Statistical significants with p-value of 2.14e-07 ***
+3. Reject Null due to P-value < 0.05 - significant association
+4. 13.3% of the variability in Total.Ecological.Footprint is predicted by this model
+
+
+ ### Forest.Footprint
+```{r}
+fit4 <- lm(Total.Ecological.Footprint ~ Forest.Footprint, data = footprint)
+summary(fit4)
+```
+
+ ### Forest.Footprint Plot :)
+```{r warning=FALSE}
+
+g1 <- ggplot(Carbonwregion, aes(Total.Ecological.Footprint, Forest.Footprint , color=Region, size=1)) + 
+  geom_count() + ggtitle("Forest Footprint and Total Ecological Footrprint") +
+  xlab("Total Ecological Footrprint") + ylab("Forest Footprint ") +
+  geom_smooth(method="lm", colour="black", size=0.5)  +
+  annotate("text", x = 7.5, y = 2.5, size = 3.0, color = "gray20",
+           label = "Statistically Significant:  p-value: 1.126e-05***")
+
+ggMarginal(g1, type = "histogram", fill="transparent")
+
+```
+
+Interpretation:
+
+1. Null : No significant association between Forest.Footprint and the Total.Ecological.Footprint variable.
+2. Results : Statistical significants with p-value of 1.13e-05 ***
+3. Reject Null due to P-value < 0.05 - significant association
+4. 9.3% of the variability in Total.Ecological.Footprint is predicted by this model
+
+
+
+ ### Carbon.Footprint
+```{r}
+fit5 <- lm(Total.Ecological.Footprint ~ Carbon.Footprint, data = footprint)
+summary(fit5)
+```
+
+### Blessed Carbon Footprint Plot!!!
+```{r warning=FALSE}
+g2 <- ggplot(Carbonwregion, aes(Total.Ecological.Footprint, Carbon.Footprint , color=Region, size=1)) + 
+  geom_count() + ggtitle("Carbon Footprint and Total Ecological Footrprint") +
+  xlab("Total Ecological Footrprint") + ylab("Carbon Footprint") +
+  geom_smooth(method="lm", colour="black", size=0.5)  +
+  annotate("text", x = 7.5, y = 11, size = 3.0, color = "gray20",
+           label = "Statistically Significant:  p-value of <2e-16 ***")
+
+ggMarginal(g2, type = "histogram", fill="transparent")
+```
+
+
+Interpretation:
+
+1. Null : No significant association between Carbon.Footprint and the Total.Ecological.Footprint variable.
+2. Results : Statistical significants with p-value of <2e-16 ***
+3. Reject Null due to P-value < 0.05 - significant association
+4. 66.65% of the variability in Total.Ecological.Footprint is predicted by this model!
+5. We would expect to see an increase in Total.Ecological.Footprint if Carbon.Footprint increased 
+
+Carbon.Footprint is by far the greatest predictor of Total Ecological Footprint!
+
+
+
+
+
+
+![](ecogif.gif)
+
+
+
+##  Biocapacity Analysis 
+#### Jumping right into a model
+```{r}
+fitB1 <- lm(Total.Biocapacity ~ Cropland + Grazing.Land + Forest.Land + Fishing.Water + Urban.Land + Biocapacity.Deficit.or.Reserve + Earths.Required + Countries.Required , data = biocapicity)
+
+summary(fitB1) 
+```
+
+Thanks to the regression model and the RDA I see that Biocapacity.Deficit.or.Reserve and Earths.Required seem to totally predict Total.Biocapacity, this is probably because of how the scores are calculated. Sadly, this might be a problem, because it may overshadow the other predictor variables by being a covariate with all of them. I will likely remove these two variables so that I can make some observations about biocapacity after plotting the residuals.
+
+#### Looking at residuals 
+```{r}
+ par(mfrow=c(2,2))
+ plot(fitB1)
+```
+
+We can see some distinct non-linear patterns in the residuals plot, so I think I will start looking at a model without those two variables 
+
+```{r}
+fitB2 <- lm(Total.Biocapacity ~ Cropland + Grazing.Land + Forest.Land + Fishing.Water + Urban.Land + Countries.Required , data = biocapicity)
+
+summary(fitB2)
+```
+
+Without Biocapacity.Deficit.or.Reserve and Earths.Required we can now see that all other variables are indeed highly significant. 
+
+Let's look at the residuals
+```{r}
+par(mfrow=c(2,2))
+ plot(fitB2)
+```
+More linear with less distinct patterns. 
+
+
+
+## Estimate plot for 2nd fit
+```{r}
+#Packages
+library(jtools)
+library(ggstance)
+#Plot
+plot_summs(fitB2, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+
+### Third fit without Countries.Required and Urban.Land
+```{r}
+fitB3 <- lm(Total.Biocapacity ~ Cropland + Grazing.Land + Forest.Land + Fishing.Water , data = biocapicity)
+
+summary(fitB3)
+```
+
+### Plotting new estimate plot
+
+```{r}
+plot_summs(fitB3, scale = TRUE, plot.distributions = TRUE, inner_ci_level = .9)
+```
+
+
+### Comparison between 2nd and 3rd fit
+```{r}
+plot_summs(fitB2, scale = TRUE, fitB3, plot.distributions = TRUE)
+```
+
+Fishing.Water, Forest.Land, Grazing.Land and Cropland estimates did not change much at all even when removing in-significant variables.
+
+
+### Conclusions for Biocapacity 
+
+
+For a 1 unit increase in Cropland with all other predictors held constant, we would expect to see a 0.80750 increase in Biocapacity
+
+And for a 1 unit increase in Grazing.Land with all other predictors held constant, we would expect to see a  0.94950  increase in Biocapacity
+
+And for a 1 unit increase in Forest.Land with all other predictors held constant, we would expect to see a 1.00035 increase in Biocapacity
+
+And  for a 1 unit increase in Fishing.Water with all other predictors held constant, we would expect to see a 0.96023 increase in Biocapacity
+
+
+The Forest.Land variable best models Total.Biocapacity!
+
+
+## End!
+
+
+Finals week has been busy and I wish I had a little more time to play around with this dataset, but I had a good time working on this project!
+
+Check out the Dashboard I made for more plots:
+
+https://us-west-2b.online.tableau.com/t/carsonsdata/views/EcofootprintInformatics/EcoDashboard?:showAppBanner=false&:display_count=n&:showVizHome=n&:origin=viz_share_link
