@@ -1,0 +1,410 @@
+---
+title: "Ecoinformatic Homework: Groundwater Data"
+author: "Dawn McSwain"
+date: "4/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Investigate Data
+
+**Load datasets:**
+```{r cars, message=FALSE, warning=FALSE}
+library(readr)
+gwd_raw <-read_csv("gwd_all_raw.csv")
+
+
+gwd_pred <- read_csv("gwd_pred.csv")
+
+```
+
+
+**View datasets:**
+```{r pressure, echo=FALSE}
+library(knitr)
+library(kableExtra)
+
+gwd_pred %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+gwd_raw %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+
+# Imputations
+
+Since there are missing values, we need to impute them. The MICE package appears to be the best fit.
+
+**Load libraries:**
+```{r message=FALSE, warning=FALSE}
+library(tidyr)
+library(tidyverse)
+library(mice)
+library(VIM)
+```
+
+
+Before imputation, I'm going to remove the sites 'NELHA RODI', 'Kohanaiki', and 'QLT A4N' because no data were collected for any of these sites.
+
+**Removing rows:**
+```{r}
+g.pred <- gwd_pred[-c(31, 93, 103),]
+
+g.raw <- gwd_raw[-c(31, 93, 103),]
+
+```
+
+
+**Visualize missing values for 'g.pred':**
+```{r}
+gw.pred <- aggr(g.pred, col=c('light sea green','gold'),
+                    numbers=TRUE, sortVars=TRUE,
+                    labels=names(g.pred), cex.axis=.7,
+                    gap=3, ylab=c("Missing data","Pattern"))
+```
+
+**Visualize missing values for 'g.raw':**
+```{r}
+gw.raw <- aggr(g.raw, col=c('light sea green','gold'),
+                    numbers=TRUE, sortVars=TRUE,
+                    labels=names(g.raw), cex.axis=.7,
+                    gap=3, ylab=c("Missing data","Pattern"))
+```
+
+Alkalinity and dissolved oxygen values seem to be the majority of what is missing. We'll now impute those values for both data sets. 
+
+**Imputations for 'g.pred':**
+```{r}
+  
+ground.pred <- mice(g.pred, m = 5, maxit = 50, method =
+'pmm', seed = 500)
+```
+
+**Imputations for 'g.raw':**
+```{r}
+ground.raw <- mice(g.raw, m = 5, maxit = 50, method =
+'pmm', seed = 500)
+
+```
+
+**View previously missing values:**
+```{r}
+ground.pred$imp$DO_sat
+```
+```{r}
+ground.pred$imp$DO_diss
+```
+
+```{r}
+ground.raw$imp$Alkalinity
+```
+
+**Complete imputation for 'ground.pred':**
+```{r}
+gwd.RV <-complete(ground.pred, 3)
+gwd.RV %>%
+  kable() %>%
+  kable_styling()
+```
+
+**Complete imputation for 'ground.raw':**
+```{r}
+gwd.EV <-complete(ground.raw, 3)
+gwd.EV %>%
+  kable() %>%
+  kable_styling()
+```
+
+**Save newly imputed values into a new spreadsheet:**
+```{r}
+write.csv(gwd.RV, 'gwd_RV.csv')
+
+write.csv(gwd.EV, 'gwd_EV.csv')
+```
+
+
+# RDA Analysis
+
+**Load libraries:**
+```{r message=FALSE, warning=FALSE}
+library(ade4)
+library(vegan)
+library(MASS)
+library(ellipse)
+library(FactoMineR)
+```
+
+
+**Load datasets:**
+```{r}
+gwater.RV <- read.csv("gwd_RV.csv", row.names = "Site")
+gwater.RV
+gwater.RV <- gwater.RV[-grep('X', colnames(gwater.RV))]
+gwater.RV
+
+gwater.EV <- read.csv("gwd_EV.csv", row.names = "Site")
+gwater.EV
+gwater.EV <- gwater.EV[-grep('X', colnames(gwater.EV))]
+gwater.EV
+```
+(The site column name needed to be numerical, so a little switching around made it ready to be transformed.)
+
+**Load functions:**
+```{r}
+source("evplot.R")
+source("hcoplot.R")
+```
+
+**Transform the data using hellinger transformation:**
+```{r}
+gRV.hel <- decostand(gwater.RV, "hellinger")
+
+gEV.hel <- decostand(gwater.EV, "hellinger")
+```
+
+**Conduct RDA:**
+```{r}
+gw.rda <- rda(gRV.hel ~ ., gwater.EV)
+summary(gw.rda)
+```
+
+**Retreiving results of the RDA:**
+```{r}
+R2adj <- RsquareAdj(gw.rda)$adj.r.squared
+R2adj
+```
+
+
+**Plot RDA using scaling 1:**
+
+***(NOTE: the orange lines are the vectors of the response variables)***
+```{r}
+plot(gw.rda, scaling = 1, main = "Triplot RDA of
+ground water variables by physical variables - scaling 1", col = "cyan")
+
+gw.sc <- scores(gw.rda, choices = 1:2, scaling
+= 1, display = "sp")
+
+arrows(0, 0, gw.sc[,1], gw.sc[,2], length = 0,
+lty = 1, col = "orange")
+```
+
+**Plot RDA using scaling 2:**
+
+***(NOTE: the orange lines are the vectors of the response variables)***
+```{r}
+plot(gw.rda, scaling = 2, main = "Triplot RDA of
+ground water variables by physical variables - scaling 2")
+
+gw2.sc <- scores(gw.rda, choices = 1:2, scaling
+= 2, display = "sp")
+
+ arrows(0, 0, gw2.sc[,1], gw2.sc[,2], length =
+0, lty = 1, col = "orange")
+```
+
+
+**Plot RDA using scaling 3:**
+
+***(NOTE: the orange lines are the vectors of the response variables)***
+```{r}
+plot(gw.rda, scaling = 3, main = "Triplot RDA of
+ground water variables by physical variables - scaling 2")
+
+gw2.sc <- scores(gw.rda, choices = 1:2, scaling
+= 3, display = "sp")
+
+ arrows(0, 0, gw2.sc[,1], gw2.sc[,2], length =
+0, lty = 1, col = "orange")
+```
+
+**RDA code from homework file:**
+```{r}
+gwd.sc <- scores(gw.rda, choices = 1:2, scaling = 1, display = "sp")
+
+plot(gw.rda, type="n", scaling=1)
+text(gw.rda, display="species", pch=20, cex=0.7, col="green", scaling=3)
+points(gw.rda, display="sites", pch=21, cex=1.3, col="gold", scaling=3)
+text(gw.rda, display="sites", pch=21, cex=0.5, col="light blue", scaling=3,)
+text(gw.rda, scaling=3, display="bp", col="#0868ac", cex=.8)
+arrows(0, 0, gwd.sc[,1], gwd.sc[,2], length = 0, lty = 1, col = "#e31a1c")
+```
+
+```{r}
+gwd.sc <- scores(gw.rda, choices = 1:2, scaling = 2, display = "sp")
+
+plot(gw.rda, type="n", scaling=2)
+text(gw.rda, display="species", pch=20, cex=0.7, col="green", scaling=3)
+points(gw.rda, display="sites", pch=21, cex=1.3, col="gold", scaling=3)
+text(gw.rda, display="sites", pch=21, cex=0.5, col="sky blue", scaling=3,)
+text(gw.rda, scaling=2, display="bp", col="#0868ac", cex=.8)
+arrows(0, 0, gwd.sc[,1], gwd.sc[,2], length = 0, lty = 1, col = "#e31a1c")
+```
+
+```{r}
+gwd.sc <- scores(gw.rda, choices = 1:2, scaling = 3, display = "sp")
+
+plot(gw.rda, type="n", scaling=2)
+text(gw.rda, display="species", pch=20, cex=0.7, col="green", scaling=3)
+points(gw.rda, display="sites", pch=21, cex=1.3, col="gold", scaling=3)
+text(gw.rda, display="sites", pch=21, cex=0.5, col="light blue", scaling=3,)
+text(gw.rda, scaling=3, display="bp", col="#0868ac", cex=.8)
+arrows(0, 0, gwd.sc[,1], gwd.sc[,2], length = 0, lty = 1, col = "#e31a1c")
+```
+
+
+**RDA when both the EV and the RV are hellinger transformed:**
+```{r}
+gw.rda1 <- rda(gRV.hel ~ ., gEV.hel)
+summary(gw.rda1)
+```
+
+
+**Retreiving results of the RDA:**
+```{r}
+R2adj1 <- RsquareAdj(gw.rda1)$adj.r.squared
+R2adj1
+```
+
+*Would ya look at that adjusted R squared value!*
+
+![](https://media.giphy.com/media/5VKbvrjxpVJCM/giphy.gif)
+
+**Plot RDA1 using scaling 2:**
+
+***(NOTE: the orange lines are the vectors of the response variables)***
+```{r}
+plot(gw.rda1, scaling = 2, main = "Triplot RDA1 of
+ground water variables by physical variables - scaling 2")
+
+gw2.sc <- scores(gw.rda1, choices = 1:2, scaling
+= 2, display = "sp")
+
+ arrows(0, 0, gw2.sc[,1], gw2.sc[,2], length =
+0, lty = 1, col = "orange")
+```
+
+**Plot of RDA1 - scaling 2 using code from handout:**
+```{r}
+gwd.sc <- scores(gw.rda1, choices = 1:2, scaling = 2, display = "sp")
+
+plot(gw.rda1, type="n", scaling=2)
+text(gw.rda1, display="species", pch=20, cex=0.7, col="green", scaling=3)
+points(gw.rda1, display="sites", pch=21, cex=1.3, col="gold", scaling=3)
+text(gw.rda1, display="sites", pch=21, cex=0.5, col="sky blue", scaling=3,)
+text(gw.rda1, scaling=2, display="bp", col="#0868ac", cex=.8)
+arrows(0, 0, gwd.sc[,1], gwd.sc[,2], length = 0, lty = 1, col = "#e31a1c")
+```
+
+**Interpretation:**
+
+Let's use scaling 2.
+
+*For RDA (only the response variables are transformed):*
+
+This model can explain 61.3% of the variation in the groundwater variables (Rsquared = 0.6134). 
+99.8% of the overall variance can be explained by the physical variables (tea pot analogy). 
+
+*For RDA (both EV and RV are transformed):*
+
+This model can explain 97.5% of the variation in the groundwater variables (Rsquared = 0.6134). 
+99.8% of the overall variance can be explained by the physical variables (tea pot analogy). 
+
+*For both RDAs:*
+
+Chloride and sodium are positively associated with conductivity and salinity, and negatively associated with temperature and both oxygen measures. Sulfate, magnesium, and barium are positively associated with conductivity and temperature, and negatively associated with salinity and dissolved oxygen. Potassium and pH are positively associated with both oxygen measures, and negatively associated with conductivity and salinity. Calcium, chromium, silicon, strontium, vanadium, and zinc are all positively associated with temperature and both oxygen measures while being negatively associated with conductivity and salinity. 
+
+
+# Nonmetric Multidimensional Scaling (NMDS) Analysis:
+
+**Load function**
+```{r}
+source("panelutils.R")
+```
+
+
+**Create a bivariate plot to assess data:**
+
+**Of 'gwater.RV':**
+```{r}
+op <- par(mfrow=c(1,1), pty = "s")
+pairs(gwater.RV, panel = panel.smooth, diag.panel =
+panel.hist, main = "Bivariate Plot with
+Histograms and Smooth Curves")
+
+```
+
+**Of 'gwater.EV':**
+```{r}
+op <- par(mfrow=c(1,1), pty = "s")
+pairs(gwater.EV, panel = panel.smooth, diag.panel =
+panel.hist, main = "Bivariate Plot with
+Histograms and Smooth Curves of Possible Explanatory Variables")
+```
+
+**Create NMDS:**
+```{r}
+gw.RV.nmds <- metaMDS(gwater.RV, distance ="bray")
+gw.RV.nmds
+
+```
+```{r}
+gw.RV.bray <-vegdist(gwater.RV)
+gw.RV.nmds$stress
+```
+
+**Plot stress data:**
+```{r}
+plot(gw.RV.nmds, type = "t", main = paste("NMDS/Bray - Stress=", round(gw.RV.nmds$stress, 3)))
+```
+```{r}
+par(mfrow=c(1,2))
+
+stressplot(gw.RV.nmds, main = "Shepard Plot")
+
+gof = goodness(gw.RV.nmds)
+
+plot(gw.RV.nmds, type = "t", main = "Goodness of
+fit")
+
+points(gw.RV.nmds, display = "sites", cex =
+gof*200)
+
+```
+
+![](https://media.giphy.com/media/tp4dm1ptNnQ76/giphy.gif)
+
+**Combine clustering with NMDS results and plot:**
+```{r}
+RV.bray.ward <-hclust(gw.RV.bray, "ward.D2")
+
+RV.bw.groups <- cutree(RV.bray.ward, k = 4)
+
+grp.lev <- levels(factor(RV.bw.groups))
+
+par(op)
+
+sit.sc <-scores(gw.RV.nmds)
+
+gw.p <-ordiplot(sit.sc, type = "n", main = "NMDS/Bray - clusters Ward/Bray")
+
+for (i in 1:length(grp.lev))
+{points(sit.sc[RV.bw.groups==i,], pch =(14-i), cex=2, col=i+1)}
+
+text(sit.sc, row.names(gwater.RV), pos=4, cex=0.7)
+
+ordihull(gw.RV.nmds, groups = RV.bw.groups, draw =
+"polygon", lty = 1, col = "grey90") 
+```
+
+**NMDS Interpretation:**
+
+The stress value is slightly above 0.20 (0.022), but not above 0.30 which would be "highly suspect". There are four groupings: red, green, teal, and blue. All sites of the same color and in the same hull have more closely related groundwater variables. 
