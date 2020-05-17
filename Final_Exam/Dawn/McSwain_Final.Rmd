@@ -1,0 +1,402 @@
+---
+title: "Let's get physical: How physical parameters shape groundwater variables"
+author: "Dawn McSwain"
+date: "Due: 13 May 2020"
+output: html_document
+---
+<style type="text/css">
+
+h1.title {
+  font-size: 25px;
+  color: Black;
+  text-align: center;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 15px;
+  color: Black;
+  text-align: center;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 15px;
+  color: Black;
+  text-align: center;
+}
+</style>
+
+<center>
+<img src="images\kona.jpg" width="450" />
+</center>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# {.tabset}
+
+## Introduction: 
+
+Here we have two different datasets from water samples taken on Hawai'i Island. The first dataset, "RV" consist of all groundwater variables that UH hydrology researchers are wanting to investigate. Some of the variables included are pH, chloride, and sulfate, among others. The second dataset, "EV" includes all the physical variables from the water samples that they think are responsible for influencing the groundwater variables. These include such variables as temperature, salinity, and conductivity. Here, we will investigate how the physical water variables influence groundwater variables. Many of the groundwater variables play various key roles in the marine ecosystem. The physical variables, to an extent, are influenced by human activity. Knowing how these two interact is important when creating rules and guidelines regarding coastal usage. 
+
+Initial Hypothesis:  
+H~A~: Physical water variables do influence ground water variables.  
+H~0~: Physical water variables do not influence ground water variables.
+
+
+
+## Data:
+
+Using this [dashboard link](https://public.tableau.com/profile/dawn.mcswain#!/vizhome/McSwain_groundwater_dashboard/Dashboard1?publish=yes) we can look at some data visualizations. 
+
+```{r cars, echo=TRUE, message=FALSE, warning=FALSE}
+RV <- read.csv("data/gwd_all_raw.csv", row.names = 1)
+
+
+EV <- read.csv("data/gwd_pred.csv", row.names = 1)
+
+```
+
+
+```{r pressure, echo=FALSE, message=FALSE, warning=FALSE}
+library(kableExtra)
+library(knitr)
+library(FactoMineR)
+library(factoextra)
+```
+
+```{r message=FALSE, warning=FALSE}
+RV %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r message=FALSE, warning=FALSE}
+EV %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+We can see that there are missing values, "NAs". This is because the instruments have a minimum value that they can accurately read. If it's below that value, the instrument cannot accurately discern it. For our interests, we're going to replace all "NA's" with "0". 
+
+**"NA's" replaced with "0":**
+
+```{r}
+RV[is.na(RV)]<-0
+RV %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+EV[is.na(EV)]<-0
+EV %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+Fantastic! Now that we are all done with that,we can move on to PCAs.
+
+
+## PCAs:
+
+Before moving forward with any particular analysis, I'd like to run a PCA to see what variables in my dataset might be the most influencial. 
+
+```{r message=FALSE, warning=FALSE}
+library(ade4)
+library(vegan)
+library(gclus)
+library(ape)
+```
+
+##### Groundwater Variables (RV): 
+
+**Eigenvalues:**
+```{r}
+RV.pca <-rda(RV, scale = TRUE)
+
+RV.pca
+```
+
+```{r}
+evalues.RV <-RV.pca$CA$eig
+
+source("evplot.R")
+
+evplot(evalues.RV)
+```
+
+Even though the first three PCAs are above the average eigenvalue line, I'm still going to stick with the first two. The third PCA *barely* passes the line and the first two account for over 80% of variation. I feel confident using only those two.
+
+**PCA plot:**
+```{r}
+source("cleanplot.pca.R")
+
+cleanplot.pca(RV.pca, point = TRUE)
+```
+
+##### Physical Variables (EV):
+
+**Eigenvalues**
+```{r}
+EV.pca <-rda(EV, scale = TRUE)
+
+EV.pca
+```
+
+```{r}
+evalues.EV <-EV.pca$CA$eig
+
+source("evplot.R")
+
+evplot(evalues.EV)
+```
+
+Again, we're going to stick with the first two PCs since they represent the majority of the proportioned variation.
+
+**PCA plot:**
+```{r}
+source("cleanplot.pca.R")
+
+cleanplot.pca(EV.pca, point = TRUE)
+```
+
+Now that we've seen each dataset individually, let's see how they might be influencing each other.
+
+## RDA:
+
+**Libraries:**
+```{r message=FALSE, warning=FALSE}
+library(ade4)
+library(vegan)
+library(MASS)
+library(ellipse)
+library(FactoMineR)
+```
+
+**Functions:**
+```{r}
+source("evplot.R")
+
+source("hcoplot.R")
+```
+
+
+**Data normalized:**
+```{r}
+RV.norm <- decostand(RV, "normalize")
+
+EV.norm <- decostand(EV, "normalize")
+```
+
+**RDA:**
+```{r}
+gw.rda <- rda(RV.norm ~ ., EV.norm)
+
+summary(gw.rda)
+```
+
+**Adjusted R^2^ value:**
+```{r}
+R2adj <- RsquareAdj(gw.rda)$adj.r.squared
+
+R2adj
+```
+
+**Plot of RDA results using scaling 3:**  
+*Note the red lines are the vectors of the response variables*
+```{r}
+gwd.sc <- scores(gw.rda, choices = 1:2, scaling = 3, display = "sp")
+
+plot(gw.rda, type="n", scaling=2)
+text(gw.rda, display="species", pch=20, cex=0.7, col="green", scaling=3)
+points(gw.rda, display="sites", pch=21, cex=1.3, col="gold", scaling=3)
+text(gw.rda, display="sites", pch=21, cex=0.5, col="light blue", scaling=3,)
+text(gw.rda, scaling=3, display="bp", col="#0868ac", cex=.8)
+arrows(0, 0, gwd.sc[,1], gwd.sc[,2], length = 0, lty = 1, col = "#e31a1c")
+```
+
+**Takeaway from PCAs & RDA:**
+
+PCA (groundwater variables): Alkalinity, zinc, and silicon account for the majority of the variablity since they extend past the circle.  
+PCA (physical variables): Dissolved oxygen, dissolved oxygen saturation, salinity, and conductivity account for the majority of the variation since they're outside the circle.  
+RDA: Almost 65% of the variability in the groundwater data can be explained by the physical variables. Sodium and chloride are positively correlated with salinity and conductivity, which makes sense. However, calcium and magnesium are negatively correlated to salinity and conductivity. Another interesting association is that alkalinity, silicon and sulfate appear to be associated with temperature and conductivity.
+
+
+***Adjusted hypotheses:***  
+H~A01~: Calcium is influenced by conductivity.  
+H~A02~: Calcium is influenced by salinity.  
+H~A03~: Calcium is influenced by dissolved oxygen.  
+H~A04~: Calcium is influenced by oxygen saturation.
+
+H~A05~: Magnesium is influenced by conductivity.  
+H~A06~: Magnesium is influenced by salinity.  
+H~A07~: Magnesium is influenced by dissolved oxygen.  
+H~A08~: Magnesium is influenced by oxygen saturation.
+
+H~A09~: Silicon is influenced by temperature.  
+H~A10~: Silicon is influenced by salinity.  
+H~A11~: Silicon is influenced by dissolved oxygen.  
+H~A12~: Silicon is influenced by oxygen saturation.
+
+## Multiple regression:
+
+```{r echo=TRUE}
+RV1 <- read.csv("data/gwd_all_raw.csv", header = TRUE)
+
+EV1 <- read.csv("data/gwd_pred.csv", header = TRUE)
+```
+
+```{r eval=FALSE, include=FALSE}
+#Note: I couldn't get the table to have the sites column listed as "Site" when I did "row.names = 1". If I tried to run the rda with "header = TRUE", it wouldn't, only with "row.names = 1". Without a column name, it wouldn't join the two data sets. No matter what I did, I couldn't get it to work, so I said just went with reloading the datasets in for this next part with "header = TRUE", replaced the NAs with 0's again, and called it good.
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+RV1[is.na(RV1)]<-0
+
+EV1[is.na(EV1)]<-0
+```
+
+**Join:**
+```{r message=FALSE, warning=FALSE}
+library(tidyr)
+library(tidyverse)
+```
+
+```{r echo=TRUE, warning=FALSE}
+RV1 %>%
+count(Site) %>%
+filter(n >1) 
+```
+"Site" is a primary key
+ 
+```{r echo=TRUE, warning=FALSE}
+EV1 %>%
+count(Site) %>%
+filter(n >1) 
+```
+"Site" is a primary key 
+
+```{r message=FALSE, warning=FALSE}
+gw.dat <- EV1 %>% left_join(RV1)
+
+write.csv(gw.dat, 'gw_dat.csv')
+
+gw.dat %>%
+  kable() %>%
+  kable_styling()
+```
+
+**Model:**
+```{r}
+plot(gw.dat, col ="forest green")
+```
+
+```{r}
+Calcium <- lm(Calcium ~ Conduct + Salinity + DO_sat + DO_diss, data = gw.dat)
+summary(Calcium)
+```
+
+```{r}
+Magnesium <- lm(Magnesium ~ Conduct + Salinity + DO_sat + DO_diss, data = gw.dat)
+summary(Magnesium)
+```
+
+```{r}
+Silicon <- lm( Silicon ~ Temp + Salinity + DO_sat + DO_diss, data = gw.dat)
+summary(Silicon)
+```
+
+## Output:
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(jtools)
+library(ggstance)
+library(ggpubr)
+library(plotly)
+```
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(Calcium, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "#6600FF")
+```
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(Magnesium, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "#6699CC")
+```
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(Silicon, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "#339900")
+```
+
+```{r message=FALSE, warning=FALSE}
+cal.reg<-ggscatter(gw.dat, x = "Salinity", y = "Calcium", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Salinity", ylab = "Calcium", color = "#6600FF", pch = 1)
+cal.reg
+```
+
+```{r message=FALSE, warning=FALSE}
+mg.reg<-ggscatter(gw.dat, x = "Salinity", y = "Magnesium", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Salinity", ylab = "Magnesium", color = "#6699CC", pch = 1)
+mg.reg
+```
+
+```{r message=FALSE, warning=FALSE}
+si.reg<-ggscatter(gw.dat, x = "Salinity", y = "Silicon", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Salinity", ylab = "Silicon", color = "#339900", pch = 1)
+si.reg
+```
+
+```{r message=FALSE, warning=FALSE}
+si.reg2<-ggscatter(gw.dat, x = "Temp", y = "Silicon", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Temperature", ylab = "Silicon", color = "#339900", pch = 1)
+si.reg2
+```
+
+```{r}
+var_1 <- gw.dat$Temp
+var_2 <- gw.dat$Salinity
+var_3 <- gw.dat$Silicon
+
+Silicon3D <- plot_ly(gw.dat, 
+             x = var_1, 
+             y = var_2, 
+             z = var_3)%>%
+  
+add_markers(color = ~Silicon) %>%
+  
+layout(scene = list(xaxis = list(title = "Temperature"), 
+                    yaxis = list(title = "Salinity"), 
+                    zaxis = list(title = "Silicon")))
+
+Silicon3D
+```
+
+
+## Results & conclusion:
+
+  Initially we sought out to see if any of the physical variables influenced the groundwater variables. With the PCA and RDA, we could see that there was potential that this was the case. With the PCAs would could see that salinity and conductivity account for the most variablity amongst the physical variables. With the RDA we saw how some of the individual groundwater variables might be influenced by particular physical variables. The first two axes explain most of the variation (RDA1 = 0.611, RDA2 = 0.037), so plotting those two is appropriate. 64.45% of the variation in groundwater variables can be explained by the model. The RDA highlighted that calcium, magnesium, and silicon might be influenced by salinity, conductivity, temperature and the two oxygen variables. We created new hypotheses to investigate these parameters.  
+  Calcium was found to be positively influenced by salinity (p <0.01), but not by conductivity (p = 0.695), dissolved oxygen (p = 0.858) or oxygen saturation (p = 0.173). 85.83% of the variation in calcium was explained by the model. Magnesium was also found to be positively influenced by salinity (p <0.01), but not by conductivity (p = 0.816), dissolved oxygen (p = 0.870), or oxygen saturation (p = 0.447). 93.16% of the variation in magnesium was explained by the model. Silicon was negatively influenced by salinity (p < 0.01) and also positively influenced by temperature (p = 0.046). 49.22% of the variation in calcium was explained by the model.  
+  Salinity appears to be a significant influencer of groundwater variables. We can see that as salinity increases, so does calcium and magnesium. Li and Jun (2019) talk about the importance of salinity to the nucleation of calcium carbonate. Calcium carbonate is incredibly vital to marine life, particularly coral reefs and other invertebrates. The incorporation of magnesium and calcium in foraminifera can be used as an indicator of sea surface temperatures, because as salinity and temperatures increase, so does the incorporation of those elements (Dissard et al. 2010).  Interestingly, silicon decreases as salinity increases. Temperature, though, appears to have a slight positive influence on silicon. In the 3D model of silicon by salinity and temperature, it shows how as salinity decreases and temperature increase, silicon will increase. Silicon is crucial for diatoms, which are a large part of marine primary productivity and carbon fixation (Kristiansen & Hoell 2002). Knowing how salinity and temperature change around coastal areas is important information in regards to marine production. That can translate to how fisheries and other ecosystems are subsisting. It also would be interesting to see how temperature influences other groundwater variables. Rising sea surface temperatures have had negative consequences on other marine parameters, knowing how it effects these particular variables would be helpful in monitoring climate change. 
+  
+
+## Literature cited:
+
+Dissard D, Nehrke G, Reichard GJ, Bijma J. 2010.The impact of salinity on the Mg/Ca and Sr/Ca ratio in the benthic foraminifera Ammonia tepida: Results from culture experiments. Geochimica et Cosmochimica Acta **74**(3):928-940
+
+Kristiansen S, Hoell EE. 2002. The importance of silicon for marine production. Sustainable Increase of Marine Harvesting: Fundamental Mechanisms and New Concepts DOI:10.1007/978-94-017-3190-4_3 
+
+Qingyun Li, Young-Shin Jun. 2019. Salinity-induced reduction of interfacial energies and kinetic factors during calcium carbonate nucleation on quartz. The Journal of Physical Chemistry C **123**(23): DOI: 10.1021/acs.jpcc.9b00378
+
+
+
+
