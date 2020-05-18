@@ -1,0 +1,372 @@
+---
+title: "Habitat complexity's influence on reef fish abundance"
+author: "Dawn McSwain"
+date: "Due: 13 April 2020"
+output: html_document
+---
+<style type="text/css">
+
+h1.title {
+  font-size: 30px;
+  color: Black;
+  text-align: center;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 15px;
+  color: Black;
+  text-align: center;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 15px;
+  color: Black;
+  text-align: center;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<center>
+<img src="images\reef.png" width="450" />
+
+Photo credit: Division of Aquatic Resources
+</center>
+
+## Overview:
+
+This study looks at how fish abundance is influenced by habitat complexity in West Hawaii on Hawaii Island. All data came from the Division of Aquatic Resources's West Hawaii Aquarium Project. Here, I investigated how habitat complexity influences fish abundance at 9 sites during 2018. I found that herbivore abundance was influenced by slope but not surface area. Piscivore and corallivore abundances were not influenced by either habitat complexity metric. I did find that corallivore abundance was influenced by herbivore abundance. Knowing how habitat complexity influences fish abundance is important when making decisions regarding conservation efforts, particularly establishing Marine Protected Areas. Modeling these parameters over several years will give a better understanding of these interactions.
+
+## Introduction:
+
+Habitat complexity has been found to have a direct effect on reef fish assemblages (Friedlander at al. 2003; Wedding et al. 2008; Burns et al. 2015). More complex benthic structure lead to larger fish populations. This is important information for many management decisions, particuarly when deciding where Marine Protected Areas (MPAs) should be created (Friedlander et al. 2003). The data used here were collected by the Division of Aquatic Resources (DAR) as a part of their West Hawaii Aquarium Project (WHAP) investigating the impacts of aquarium fish collecting and the effectiveness of MPAs in Hawaii. The study area consisted of 9 sites spanning West Hawaii on Hawaii Island.
+
+With this data, I will determine if habitat complexity influenced fish assemblages in these 9 West Hawaii sites during 2018. From there, I will investigate how different groups of reef fishes, particularly herbivores, piscivores, and corallivores, were impacted by complexity individually. Lastly, I will explore how these different groups of fishes influenced the abundance of each other.
+
+Specific questions I will answer:
+
+1) Are herbivores, corallivores, and/or piscivores infuenced by habitat complexity?
+
+2) Does the abundance of herbivorous fishes affect the abundance of corallivorous fishes?
+
+## Initial Data Analysis:
+
+![](https://media.giphy.com/media/mCRJDo24UvJMA/giphy.gif)
+
+```{r cars}
+# fish abundance dataframe:
+a <-read.csv("data/abundance.csv", header = TRUE, sep = ",")
+
+# habitat complexity dataframe:
+c <-read.csv("data/complexity.csv", header = TRUE, sep = ",")
+```
+
+Based on the tables below:
+```{r}
+head(a)
+```
+```{r}
+str(a)
+```
+```{r}
+head(c)
+```
+
+
+```{r}
+str(c)
+```
+
+We can see that the fish abundance dataframe has 7 variables with 10 different observations and the complexity dataframe has 3 variables with 9 observations.
+
+These data was collected by the DAR for their annual WHAP project. All data viewed here are from the year 2018. There is metadata to explain the abbreviations for site names and units for all measurements.
+
+Issues so far:
+
+The column for "Local ID" shows up as, "ï..ID"...weird.
+
+
+![](https://media.giphy.com/media/kaq6GnxDlJaBq/giphy.gif)
+```{r warning=FALSE, include=FALSE}
+library(dplyr)
+library(tidyverse)
+```
+
+
+
+```{r warning=TRUE}
+
+# fix for abundance dataframe:
+colnames(a)
+names(a)[names(a) == "ï..ID" ] <- "LocalID"
+colnames(a)
+
+# fix for complexity dataframe:
+colnames(c)
+names(c)[names(c) == "ï..ID" ] <- "LocalID"
+colnames(c)
+```
+All fixed! Now onto...
+
+## Tidy Data:
+
+![](https://media.giphy.com/media/fCUCbWXe9JONVsJSUd/giphy.gif)
+
+All data are now tidy and the two dataframes are ready to be joined!
+
+First, let's look for primary keys:
+
+```{r}
+c %>%
+count(LocalID) %>%
+filter(n >1)
+```
+```{r}
+c %>%
+count(LocalID) %>%
+filter(n >1)
+```
+Local ID is a primary key (what I can join tables by) for both abundance and complexity dataframes.
+
+Now we can join!
+
+```{r message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+```
+
+
+```{r warning=FALSE}
+
+new.dat <- full_join(a,c, by = "LocalID", copy = FALSE, suffix = c(".a", ".c"))
+
+new.dat %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+new.dat %>%
+count(LocalID) %>%
+filter(n >1)
+
+```
+
+Local ID is still a primary key!
+
+
+
+```{r echo=TRUE}
+left.join <- a %>% left_join(c)
+
+left.join %>%
+  kable() %>%
+  kable_styling()
+```
+
+```{r}
+semi.join <- a %>% semi_join(c)
+
+semi.join %>%
+  kable() %>%
+  kable_styling()
+```
+
+Semi join isn't a good fit since the complexity dataframe has missing values for Local ID 11. Because of those missing values, none of the complexity dataframe is added to the new joined dataframe. I'm going to stick with the left join.
+
+```{r warning=FALSE, include=FALSE}
+new.dat %>%
+  kable() %>%
+  kable_styling()
+```
+
+## Imputations:
+
+![](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
+```{r message=FALSE, warning=FALSE}
+library(mice)
+library(VIM)
+```
+
+```{r}
+new.dat_plot<-aggr(new.dat, col=c('deep sky blue','gold'), numbers=TRUE, sortVars=TRUE,
+labels=names(new.dat), cex.axis=.7, gap=3, ylab=c("Missing data","Pattern"))
+```
+
+This graph shows me where the missing values are. Now to impute!
+
+```{r message=FALSE, warning=FALSE}
+new.dat_imp <-mice(new.dat, m = 5, maxit = 50, method = 'pmm', seed = 500)
+new.dat_imp$imp$surfAaverage
+```
+
+```{r}
+new.dat_imp$imp$slopeaverage
+```
+
+```{r}
+imputed.data <-complete(new.dat_imp, 3)
+
+imputed.data %>%
+  kable() %>%
+  kable_styling()
+
+```
+
+My missing values were from the complexity dataset. Both variables (surface area and slope) were not recorded for all of Local ID 11. While I can impute those values, it doesn't make sense to do so since it's taking completely different sites and making an imputation off of that. I'd rather omit local ID 11 from my data and look at how complexity influences fish abundance across the other sites. 
+
+Removing Local ID 11 from the dataframe:
+```{r}
+fish.complex <- new.dat[-c(5), ]
+```
+
+New dataframe:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+view(fish.complex)
+names(fish.complex)[names(fish.complex) == "surfAaverage" ] <- "SA"
+names(fish.complex)[names(fish.complex) == "slopeaverage" ] <- "Slope"
+colnames(fish.complex)
+```
+
+```{r}
+fish.complex %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+## Model:
+
+Let's make some models!
+
+![](https://media.giphy.com/media/umc1xMPpA66SA/giphy.gif)
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r}
+plot(fish.complex, col = "blue")
+```
+
+```{r}
+herb.model <- lm(Herbivore ~ SA + Slope, data = fish.complex)
+summary(herb.model)
+```
+
+
+```{r pressure, echo=FALSE}
+coral.model <- lm(Corallivore ~ SA + Slope, data = fish.complex)
+summary(coral.model)
+```
+
+```{r}
+pisc.model <- lm(Piscivore ~ SA + Slope, data = fish.complex)
+summary(pisc.model)
+```
+
+
+```{r}
+fish.model <- lm(Corallivore ~ Herbivore, data = fish.complex)
+summary(fish.model)
+```
+
+## Output:
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(jtools)
+library(ggstance)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(herb.model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "medium turquoise")
+```
+
+Here is a visualization of the herb.model summary showing that slope influences herbivore fish abundance but surface area does not.
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(pisc.model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "spring green")
+```
+
+Here, neither slope or surface area influences piscivore fish abundance. 
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(coral.model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "forest green")
+```
+
+Again, no influence on corallivore fish by surface area or slope.
+
+```{r message=FALSE, warning=FALSE}
+plot_summs(fish.model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.9, colors = "dark olive green")
+```
+
+Corallivore abundance IS influenced by herbivore abundance.
+
+```{r message=FALSE, warning=FALSE}
+library(ggpubr)
+```
+
+```{r message=FALSE, warning=FALSE}
+herb.scatter<-ggscatter(fish.complex, x = "Slope", y = "Herbivore", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Average Slope (%)", ylab = "Herbivore Abundance", color = "medium sea green", pch = 3)
+herb.scatter
+```
+
+```{r message=FALSE, warning=FALSE}
+library(plotly)
+```
+
+```{r}
+var_1 <- fish.complex$SA
+var_2 <- fish.complex$Slope
+var_3 <- fish.complex$Herbivore
+
+Herb3D <- plot_ly(fish.complex, 
+             x = var_1, 
+             y = var_2, 
+             z = var_3)%>%
+  
+add_markers(color = ~Herbivore) %>%
+  
+layout(scene = list(xaxis = list(title = "Average Surface Area"), 
+                    yaxis = list(title = "Average Slope"), 
+                    zaxis = list(title = "Herbivore Abundance")))
+
+Herb3D
+```
+
+
+```{r message=FALSE, warning=FALSE}
+coral.scatter<-ggscatter(fish.complex, x = "Herbivore", y = "Corallivore", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",mainlab = NULL,
+          xlab = "Herbivore Abundance", ylab = "Corallivore Abundance", color = "medium orchid", pch = 3)
+coral.scatter
+```
+
+## Summary:
+
+In 2018, of the 9 sites surveyed by DAR in West Hawaii, herbivore fish abundance was influenced by average slope (p = 0.03), but not by average surface area (p = 0.09) of the benthos. 54.6% of varation in herbivore abundance can be explained by the model. Corallivores were not influenced by either average surface area (p = 0.2) or average slope (p = 0.2), with 9.3% of the variation in their abundance being explained by the model. Piscivore fish were also found to not be influenced by either habitat complexity metric; surface area (p = 0.9), slope (p = 0.6). The model can explain 21.1% of the variation in piscivore abundance. Corallivore fish abundance was found to be influenced by herbivore fish abundance (p = 0.03) at these West Hawaii sites in 2018, with 43.7% of the variation in their abundance being explained by the model.
+
+Chong-Seng et al (2012) broke down fish functional groups further than just herbivores, piscivores, and corallivores, but had similar findings in that herbivores were slightly influenced by habitat complexity and that piscivores were not influenced. Since piscivores are predators, habitat complexity not influencing their abundance makes sense. Our findings differ; corallivore abundance was influenced by habitat complexity in their findings, but not in mine. This study was a snapshot of one year, looking at a single measure of three functional groups by two habitat complexity measures at only 9 sites. To get a better understanding of the interplay between fish abundance and habitat complexity, more data with more variables is needed to widen the scope. 
+
+
+<center>
+![](https://media.giphy.com/media/xUOwG1GXJvJlajETMk/giphy.gif)
+</center>
+
+
+
+## Literature Cited:
+
+Burns JHR, Delparte D, Gates RD, Takabayashi M. 2015. (2015). Integrating Structure-from-motion
+photogrammetry with geospatial software as a novel technique for quantifying 3D ecological
+characteristics of coral reefs. Peerj https://doi.org/10.7717/peerj.1077
+
+Chong-Seng KM, Mannering TD, Pratchett MS, Bellwood DR, Graham NAJ. 2012. The influence of coral reef benthic condition on associated fish assemblages. PLoS One **7**(8) doi:10.1371/journal.pone.0042167
+
+Friedlander AM, Brown EK, Jokiel PL, Smith WR, Rodgers KS. 2003. Effects of habitat, wave exposure, and marine protected area status on coral reef fish assemblages in the Hawaiian archipelago. Coral Reefs **22**:291-305.
+
+Wedding LM, Friedlander AM, McGranaghan M, Yost RS, Monaco ME.Using bathymetric lidar to define nearshore benthic habitat complexity: Implications for management of reef fish assemblages in Hawaii. Remote Sensing of Environment **112**:4159-4165.
